@@ -39,6 +39,12 @@ android {
     buildFeatures {
         compose = true
     }
+    packagingOptions {
+        // Excluir archivos de licencia de Apache POI para evitar conflictos
+        exclude("META-INF/licenses/poi/*")
+        exclude("META-INF/LICENSE")
+        exclude("META-INF/NOTICE")
+    }
 }
 
 dependencies {
@@ -50,6 +56,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    
+    // DEPENDENCIAS ESPECÍFICAS
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.apache.poi) // Librería para leer Excel .xlsx
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
