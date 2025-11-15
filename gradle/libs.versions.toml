@@ -12,7 +12,7 @@ composeBom = "2024.09.00"
 navigationRuntimeKtx = "2.9.6"
 navigationCompose = "2.9.6"
 
-navigationCompose = "2.7.7"
+
 apachePoi = "5.2.3"
 
 [libraries]
@@ -36,7 +36,6 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 # DEPENDENCIAS AÑADIDAS
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
-androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 apache-poi = { group = "org.apache.poi", name = "poi-ooxml", version.ref = "apachePoi" }
 
 
