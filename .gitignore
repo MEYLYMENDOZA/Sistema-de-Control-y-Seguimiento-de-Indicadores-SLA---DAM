@@ -1,15 +1,117 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+gitignore
+# =========================================================================
+# Archivos y carpetas del Sistema Operativo
+# =========================================================================
+# Archivos de metadatos de macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Iconos personalizados de carpetas de macOS
+Icon
+
+# Vistas en miniatura de Windows
+Thumbs.db
+ehthumbs.db
+
+# Papelera de reciclaje de macOS
+.Trashes
+
+# Archivos de metadatos de volumen de red de macOS
+._*
+
+# =========================================================================
+# Archivos de Android Studio y IntelliJ (.idea)
+# =========================================================================
+# Usamos un enfoque de "permitir" en lugar de "ignorar todo" para la carpeta .idea
+# Ignorar todo excepto los archivos que sí queremos compartir
+.idea/*
+!.idea/gradle.xml
+!.idea/misc.xml
+!.idea/vcs.xml
+!.idea/name
+!.idea/compiler.xml
+!.idea/copyright/
+!.idea/codeStyles/
+
+# Archivos de espacio de trabajo generados
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/deployment.xml
+.idea/libraries/
+
+# Archivos de diccionario del usuario
+.idea/dictionaries
+
+# Archivos generados por el sistema de compilación
+.idea/jarRepositories.xml
+
+# =========================================================================
+# Archivos generados por la compilación (Build)
+# =========================================================================
+# Carpeta de compilación principal del proyecto
 /build
-/captures
-.externalNativeBuild
-.cxx
+
+# Carpetas de compilación de cada módulo
+/*/build
+
+# Salida de la compilación de variantes
+/*/out
+
+# =========================================================================
+# Archivos y carpetas de Gradle
+# =========================================================================
+# Caché de Gradle
+.gradle
+/gradle
+/.gradle
+
+# Registros de errores del Daemon de Gradle
+/gradle-daemon.log
+/gradle-daemon-*.log
+
+# Archivo de propiedades local (contiene rutas específicas del equipo como la del SDK)
+# ¡MUY IMPORTANTE! Nunca subir este archivo.
 local.properties
+
+# Archivos generados por el wrapper de Gradle
+!gradle/wrapper/gradle-wrapper.jar
+!gradle-wrapper.jar
+!gradlew
+!gradlew.bat
+
+# =========================================================================
+# Otros archivos generados y de herramientas
+# =========================================================================
+# Archivos APK, AAB (Android App Bundle), y otros artefactos de salida
+*.apk
+*.aab
+*.ap_
+*.aapk
+*.aar
+
+# Archivos de mapeo de ProGuard/R8
+*.map
+
+# Archivos de captura de rendimiento de Android Studio
+*.hprof
+*.prof
+*.capture
+.cxx/
+
+# Logs y bases de datos temporales
+*.log
+*.db
+*.sqlite
+
+# Archivos generados por Google Services (si los usas, a veces se autogeneran)
+google-services.json # A veces se descarga, pero si contiene claves sensibles, no debería subirse.
+
+# =========================================================================
+# Archivos específicos de dependencias (si aplica)
+# =========================================================================
+# Por ejemplo, si usaras Realm, se ignorarían sus archivos temporales
+# realm.properties
+# *.realm.lock
+# *.realm.note
+# *.realm.management

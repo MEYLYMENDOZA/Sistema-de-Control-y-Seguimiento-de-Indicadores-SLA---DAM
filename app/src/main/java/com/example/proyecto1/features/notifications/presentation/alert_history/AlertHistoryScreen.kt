@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Menu // Importa el ícono de Menú
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,8 +19,8 @@ import com.example.proyecto1.features.notifications.presentation.alert_history.c
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlertsHistoryScreen(
-    // Inyecta el ViewModel
-    viewModel: AlertsHistoryViewModel = viewModel()
+    viewModel: AlertsHistoryViewModel = viewModel(),
+    onMenuClick: () -> Unit // ¡CAMBIO AQUÍ! Ahora recibe la función para abrir el menú
 ) {
     // Observa el estado del ViewModel
     val state by viewModel.uiState.collectAsState()
@@ -30,12 +30,11 @@ fun AlertsHistoryScreen(
             TopAppBar(
                 title = { Text("Historial de Alertas") },
                 navigationIcon = {
-                    IconButton(onClick = { /* TODO: Abrir menú lateral */ }) {
+                    // ¡CAMBIO AQUÍ! El botón ahora llama a onMenuClick
+                    IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = "Menú")
                     }
                 },
-                // Muestra el contador de alertas no leídas en la barra superior
-                // (Cumple con "badge/contador de alertas no leídas")
                 actions = {
                     BadgedBox(
                         badge = {
@@ -45,8 +44,6 @@ fun AlertsHistoryScreen(
                         },
                         modifier = Modifier.padding(end = 16.dp)
                     ) {
-                        // El ícono sobre el que se mostrará el badge
-                        // (Puedes cambiarlo por un ícono de campana si prefieres)
                         Text(
                             text = "No Leídas",
                             fontWeight = FontWeight.Medium
@@ -58,7 +55,6 @@ fun AlertsHistoryScreen(
     ) { paddingValues ->
 
         if (state.isLoading) {
-            // Muestra un indicador de carga mientras los datos se "cargan"
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -68,7 +64,6 @@ fun AlertsHistoryScreen(
                 CircularProgressIndicator()
             }
         } else {
-            // Muestra el contenido principal (la lista de alertas)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -77,7 +72,6 @@ fun AlertsHistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
-                // --- Cabecera de la lista ---
                 item {
                     Text(
                         text = "Alertas Activas",
@@ -86,7 +80,6 @@ fun AlertsHistoryScreen(
                     )
                 }
 
-                // --- Lista de Alertas ---
                 if (state.alerts.isEmpty()) {
                     item {
                         Box(

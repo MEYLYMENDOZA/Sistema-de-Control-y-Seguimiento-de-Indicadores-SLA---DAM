@@ -79,6 +79,5 @@ dependencies {
         // ViewModel para Compose
         implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
 
-        // ... otras dependencias
-    }
+        implementation("androidx.navigation:navigation-compose:2.7.7")    }
 }

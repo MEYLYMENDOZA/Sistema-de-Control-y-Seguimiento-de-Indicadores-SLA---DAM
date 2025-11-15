@@ -8,7 +8,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Menu // Importa el ícono de Menú
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyecto1.features.notifications.domain.model.NotificationStatus
 import com.example.proyecto1.features.notifications.presentation.email_notifications.components.EmailHistoryItem
@@ -27,8 +26,8 @@ import com.example.proyecto1.features.notifications.presentation.email_notificat
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmailNotificationsScreen(
-    // Inyecta el ViewModel
-    viewModel: EmailNotificationsViewModel = viewModel()
+    viewModel: EmailNotificationsViewModel = viewModel(),
+    onMenuClick: () -> Unit // ¡CAMBIO AQUÍ! Ahora recibe la función para abrir el menú
 ) {
     // Observa el estado del ViewModel
     val state by viewModel.uiState.collectAsState()
@@ -38,7 +37,8 @@ fun EmailNotificationsScreen(
             TopAppBar(
                 title = { Text("Notificaciones") },
                 navigationIcon = {
-                    IconButton(onClick = { /* TODO: Abrir menú lateral */ }) {
+                    // ¡CAMBIO AQUÍ! El botón ahora llama a onMenuClick
+                    IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = "Menú")
                     }
                 }
@@ -47,7 +47,6 @@ fun EmailNotificationsScreen(
     ) { paddingValues ->
 
         if (state.isLoading) {
-            // Muestra un indicador de carga mientras los datos se "cargan"
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -57,7 +56,6 @@ fun EmailNotificationsScreen(
                 CircularProgressIndicator()
             }
         } else {
-            // Muestra el contenido principal
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -66,7 +64,6 @@ fun EmailNotificationsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
 
-                // --- Cabecera ---
                 item {
                     Column {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -83,7 +80,6 @@ fun EmailNotificationsScreen(
                     }
                 }
 
-                // --- Tarjetas de Estadísticas ---
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -113,7 +109,6 @@ fun EmailNotificationsScreen(
                     }
                 }
 
-                // --- Cabecera de Historial ---
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(
@@ -141,7 +136,6 @@ fun EmailNotificationsScreen(
                     }
                 }
 
-                // --- Lista de Historial ---
                 if (state.historyList.isEmpty()) {
                     item {
                         Box(
@@ -165,7 +159,6 @@ fun EmailNotificationsScreen(
                     }
                 }
 
-                // Espacio al final
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }

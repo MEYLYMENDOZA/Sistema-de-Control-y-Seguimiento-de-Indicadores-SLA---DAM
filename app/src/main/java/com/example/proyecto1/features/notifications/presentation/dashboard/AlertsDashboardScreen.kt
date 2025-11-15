@@ -27,11 +27,11 @@ import com.example.proyecto1.features.notifications.presentation.dashboard.compo
 @Composable
 fun AlertsDashboardScreen(
     viewModel: AlertsDashboardViewModel = viewModel(),
-    // Estas son las funciones de navegación
+    onMenuClick: () -> Unit, // ¡NUEVO!
     onNavigateToAlertsHistory: () -> Unit,
     onNavigateToCriticalCases: () -> Unit,
     onNavigateToSettings: () -> Unit
-) {
+){
     val state by viewModel.uiState.collectAsState()
 
     Scaffold(
@@ -39,13 +39,14 @@ fun AlertsDashboardScreen(
             TopAppBar(
                 title = { Text("Alertas") },
                 navigationIcon = {
-                    IconButton(onClick = { /* TODO: Abrir menú lateral */ }) {
+                    // ¡ACTUALIZAR ESTA LÍNEA!
+                    IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = "Menú")
                     }
                 }
             )
         }
-    ) { paddingValues ->
+    ){ paddingValues ->
 
         // Usamos LazyColumn para que la pantalla sea "scroleable"
         LazyColumn(
