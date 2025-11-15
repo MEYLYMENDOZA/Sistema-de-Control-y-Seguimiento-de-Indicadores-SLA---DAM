@@ -1,0 +1,229 @@
+{
+  "area": {
+    "AREA_DEFAULT": {
+      "nombre_area": "",
+      "descripcion": ""
+    }
+  },
+  "tipo_solicitud_catalogo": {
+    "TIPO_SOLICITUD_DEFAULT": {
+      "codigo": "",
+      "descripcion": ""
+    }
+  },
+  "estado_usuario_catalogo": {
+    "ESTADO_USUARIO_DEFAULT": {
+      "codigo": "",
+      "descripcion": ""
+    }
+  },
+  "estado_solicitud_catalogo": {
+    "ESTADO_SOLICITUD_DEFAULT": {
+      "codigo": "",
+      "descripcion": ""
+    }
+  },
+  "estado_alerta_catalogo": {
+    "ESTADO_ALERTA_DEFAULT": {
+      "codigo": "",
+      "descripcion": ""
+    }
+  },
+  "tipo_alerta_catalogo": {
+    "TIPO_ALERTA_DEFAULT": {
+      "codigo": "",
+      "descripcion": ""
+    }
+  },
+
+  "permiso": {
+    "PERMISO_DEFAULT": {
+      "codigo": "",
+      "descripcion": "",
+      "nombre": ""
+    }
+  },
+  "roles_sistema": {
+    "ROL_SISTEMA_DEFAULT": {
+      "codigo": "",
+      "descripcion": "",
+      "es_activo": true,
+      "nombre": ""
+    }
+  },
+  "rol_registro": {
+    "ROL_REGISTRO_DEFAULT": {
+      "bloque_tech": "",
+      "descripcion": "",
+      "es_activo": true,
+      "nombre_rol": ""
+    }
+  },
+
+  "rol_permiso": {
+    "ROL_PERMISO_DEFAULT": {
+      "permiso": {
+        "id": "",
+        "codigo": "",
+        "nombre": ""
+      },
+      "rol_sistema": {
+        "id": "",
+        "codigo": "",
+        "nombre": ""
+      }
+    }
+  },
+
+  "usuario": {
+    "USUARIO_DEFAULT": {
+      "username": "",
+      "correo": "",
+      "password_hash": "",
+      "rol_sistema": {
+        "id": "",
+        "codigo": "",
+        "nombre": ""
+      },
+      "estado_usuario": {
+        "id": "",
+        "codigo": "",
+        "descripcion": ""
+      },
+      "creado_en": "",
+      "actualizado_en": "",
+      "ultimo_login": ""
+    }
+  },
+
+  "personal": {
+    "PERSONAL_DEFAULT": {
+      "usuario": {
+        "id": "",
+        "username": "",
+        "correo": ""
+      },
+      "nombres": "",
+      "apellidos": "",
+      "documento": "",
+      "estado": "",
+      "creado_en": "",
+      "actualizado_en": ""
+    }
+  },
+
+  "config_sla": {
+    "CONFIG_SLA_DEFAULT": {
+      "codigo_sla": "",
+      "descripcion": "",
+      "dias_umbral": 0,
+      "es_activo": true,
+      "tipo_solicitud": {
+        "id": "",
+        "codigo": "",
+        "descripcion": ""
+      },
+      "creado_en": "",
+      "actualizado_en": "",
+      "creado_por": {
+        "id": "",
+        "username": ""
+      },
+      "actualizado_por": {
+        "id": "",
+        "username": ""
+      }
+    }
+  },
+
+  "reporte": {
+    "REPORTE_DEFAULT": {
+      "tipo_reporte": "",
+      "formato": "",
+      "filtros_json": {},
+      "generado_por": {
+        "id": "",
+        "username": ""
+      },
+      "fecha_generacion": "",
+      "ruta_archivo": ""
+    }
+  },
+
+  "reporte_detalle": {
+    "REPORTE_DETALLE_DEFAULT": {
+      "reporte": {
+        "id": "",
+        "tipo_reporte": ""
+      },
+      "solicitud": {
+        "id": "",
+        "resumen_sla": ""
+      }
+    }
+  },
+
+  "solicitud": {
+    "SOLICITUD_DEFAULT": {
+      "personal": {
+        "id": "",
+        "nombres": "",
+        "apellidos": ""
+      },
+      "rol_registro": {
+        "id": "",
+        "nombre_rol": ""
+      },
+      "config_sla": {
+        "id": "",
+        "codigo_sla": ""
+      },
+      "area": {
+        "id": "",
+        "nombre_area": ""
+      },
+      "estado_solicitud": {
+        "id": "",
+        "codigo": ""
+      },
+      "fecha_solicitud": "",
+      "fecha_ingreso": "",
+      "num_dias_sla": 0,
+      "resumen_sla": "",
+      "origen_dato": "",
+      "creado_por": {
+        "id": "",
+        "username": ""
+      },
+      "creado_en": "",
+      "actualizado_en": "",
+      "actualizado_por": {
+        "id": "",
+        "username": ""
+      }
+    }
+  },
+
+  "alerta": {
+    "ALERTA_DEFAULT": {
+      "solicitud": {
+        "id": "",
+        "resumen_sla": ""
+      },
+      "tipo_alerta": {
+        "id": "",
+        "codigo": ""
+      },
+      "estado_alerta": {
+        "id": "",
+        "codigo": ""
+      },
+      "nivel": "",
+      "mensaje": "",
+      "enviado_email": false,
+      "fecha_creacion": "",
+      "fecha_lectura": "",
+      "actualizado_en": ""
+    }
+  }
+}
