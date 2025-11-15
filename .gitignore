@@ -1,15 +1,122 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# =============================
+# Git Ignore - Proyecto Android/Kotlin (Gradle + Firebase)
+# =============================
+# NOTA:
+#  - Normalmente se incluye 'google-services.json' en el repo para facilitar la configuración.
+#    Si NO quieres subirlo, descomenta la línea que lo ignora en la sección Firebase.
+#  - No subas claves de firma (keystores) ni archivos de configuración locales.
+#  - Este archivo cubre: IDE (IntelliJ/Android Studio), Gradle, builds, cachés y binarios.
+
+# -------- Archivos del SO --------
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
+Thumbs.db
+Desktop.ini
+
+# -------- Configuración de IDE (JetBrains / Android Studio) --------
+.idea/
+*.iml
+*.iws
+*.ipr
+# A veces conviene mantener:
+# .idea/codeStyles/ (si hay convenciones compartidas)
+# .idea/inspectionProfiles/ (si quieren compartir perfiles de inspección)
+
+# -------- Gradle --------
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# -------- Android / Artefactos de compilación --------
+/local.properties
+/.cxx/
+*.apk
+*.ap_
+*.aab
+*.aar
+*.dex
+*.class
+*.so
+*.o
+*.obj
+*.jar
+*.keystore
+*.jks
+*.orig
+*.key
+*.cer
+*.pem
+
+# -------- Firebase --------
+# Descomenta si NO quieres subirlo:
+# /app/google-services.json
+
+# -------- Archivos generados (intermediates y outputs) --------
+**/intermediates/
+**/generated/
+**/outputs/
+**/tmp/
+
+# -------- Capturas (Android Studio) --------
+captures/
+
+# -------- Mapping y Crashes --------
+app/build/outputs/mapping/
+
+# -------- Recursos combinados (merges) --------
+**/merged_res/
+**/merged_shaders/
+**/merged_manifests/
+**/merged_jni_libs/
+**/merged_startup_profile/
+**/merged_res_blame_folder/
+
+# -------- Logs & Reportes --------
+*.log
+app/build/reports/
+
+# -------- Archivos temporales / editor --------
+*.swp
+*.swo
+*.tmp
+*.temp
+~$*
+
+# -------- Salidas de IntelliJ --------
+out/
+
+# -------- Variables de entorno / secretos --------
+.env
+.env.*
+
+# -------- Node / JS (si se añade tooling web) --------
+node_modules/
+
+# -------- Python (si se usa algún script auxiliar) --------
+venv/
+__pycache__/
+*.pyc
+
+# -------- Otros binarios / backups --------
+*.bak
+*.old
+*.backup
+
+# -------- CSV / datos masivos (si se usan para carga) --------
+*.csv
+*.xlsx
+*.xls
+
+# -------- Imagenes generadas dinámicamente --------
+*.webp
+*.tmp.png
+
+# -------- Ejemplos de exclusión de llaves de firma --------
+signing/
+**/release/signing/**
+
+# -------- Limpiar artefactos de pruebas --------
+*.testresult
+
+# Fin del archivo
+
