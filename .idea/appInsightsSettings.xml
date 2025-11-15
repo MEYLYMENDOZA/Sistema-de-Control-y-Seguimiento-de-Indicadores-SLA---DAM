@@ -12,6 +12,11 @@
                   <option name="mobileSdkAppId" value="1:946473203736:android:e7216d3ddb50a9027b2b6d" />
                   <option name="projectId" value="proyecto01-6c9bc" />
                   <option name="projectNumber" value="946473203736" />
+
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

@@ -4,6 +4,7 @@
     <option name="columnSorters">
       <list>
         <ColumnSorterState>
+
           <option name="column" value="Status" />
           <option name="order" value="ASCENDING" />
         </ColumnSorterState>
