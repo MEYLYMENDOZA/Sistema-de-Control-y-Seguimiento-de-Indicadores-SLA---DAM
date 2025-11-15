@@ -4,11 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+@Suppress("EditedTargetSdkVersion")
 android {
     namespace = "com.example.proyecto1"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.proyecto1"
@@ -56,12 +55,19 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    
+
+    implementation("com.google.android.material:material:1.12.0") 
+    implementation("androidx.compose.material:material-icons-extended:1.6.7")
+    implementation("com.itextpdf:itextg:5.5.10") // This was the missing line
+    implementation(libs.androidx.navigation.runtime.ktx)
+    implementation(libs.androidx.navigation.compose)
+
     // DEPENDENCIAS ESPECÍFICAS
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.apache.poi) // Librería para leer Excel .xlsx
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
