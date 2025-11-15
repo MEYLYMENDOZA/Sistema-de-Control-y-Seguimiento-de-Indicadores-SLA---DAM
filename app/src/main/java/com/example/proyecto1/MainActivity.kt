@@ -36,6 +36,7 @@ import com.example.proyecto1.ui.user.UserListScreen
 
 // --- Definición de las rutas de navegación ---
 sealed class Screen(val route: String, val label: String? = null, val icon: ImageVector? = null) {
+    object Login : Screen("login")
     object Carga : Screen("carga", "Carga de Datos", Icons.Default.Upload)
     object Gestion : Screen("gestion", "Gestión de Datos", Icons.Default.Edit)
     object UserAdmin : Screen("user_admin", "Usuarios", Icons.Default.Person)
@@ -71,10 +72,9 @@ fun DefaultPreview() {
                 val navController = rememberNavController()
                 val isLoggedIn = remember { mutableStateOf(false) }
 
-                if (isLoggedIn.value) {
-                    // Pantalla principal autenticada
-                    Scaffold(
-                        bottomBar = {
+                Scaffold(
+                    bottomBar = {
+                        if (isLoggedIn.value) {
                             NavigationBar {
                                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                                 val currentDestination = navBackStackEntry?.destination
@@ -97,29 +97,34 @@ fun DefaultPreview() {
                                 }
                             }
                         }
-                    ) { innerPadding ->
-                        val gestionViewModel: GestionDatosViewModel = viewModel()
-                        NavHost(
-                            navController = navController,
-                            startDestination = Screen.Carga.route,
-                            modifier = Modifier.padding(innerPadding)
-                        ) {
-                            composable(Screen.Carga.route) {
-                                CargaDatosScreen(gestionViewModel)
-                            }
-                            composable(Screen.Gestion.route) {
-                                GestionDatosScreen(gestionViewModel)
-                            }
-                            composable(Screen.UserAdmin.route) {
-                                UserListScreen()
-                            }
+                    }
+                ) { innerPadding ->
+                    val gestionViewModel: GestionDatosViewModel = viewModel()
+                    NavHost(
+                        navController = navController,
+                        startDestination = Screen.Login.route,
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable(Screen.Login.route) {
+                            LoginScreen(
+                                onLoginSuccess = {
+                                    isLoggedIn.value = true
+                                    navController.navigate(Screen.Carga.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+                        composable(Screen.Carga.route) {
+                            CargaDatosScreen(gestionViewModel)
+                        }
+                        composable(Screen.Gestion.route) {
+                            GestionDatosScreen(gestionViewModel)
+                        }
+                        composable(Screen.UserAdmin.route) {
+                            UserListScreen()
                         }
                     }
-                } else {
-                    // Pantalla de login
-                    LoginScreen(
-                        onLoginSuccess = { isLoggedIn.value = true }
-                    )
                 }
             }
         }
