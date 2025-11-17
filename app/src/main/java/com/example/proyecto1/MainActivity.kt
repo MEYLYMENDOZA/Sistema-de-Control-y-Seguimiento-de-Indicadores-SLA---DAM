@@ -1,499 +1,410 @@
-package com.example.proyecto1
+package com.example.proyecto1 // ASUMO QUE TU CLASE MAINACTIVITY ESTÁ EN ESTE PACKAGE
 
+import android.app.Application
+import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext // NECESARIO PARA OBTENER EL CONTEXTO
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.proyecto1.presentation.prediccion.PrediccionScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
-import com.example.proyecto1.presentation.prediccion.TendenciaScreen
-import com.example.proyecto1.ui.theme.Proyecto1Theme
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.compose.material3.*
+import androidx.compose.material3.DrawerValue as M3DrawerValue
+import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.*
-import com.example.proyecto1.ui.gestion.CargaDatosScreen
-import com.example.proyecto1.ui.gestion.GestionDatosScreen
-import com.example.proyecto1.ui.gestion.GestionDatosViewModel
-import com.example.proyecto1.ui.login.LoginScreen
-import com.example.proyecto1.ui.theme.Proyecto1Theme
-import com.example.proyecto1.ui.user.UserListScreen
+// DataStore delegate (Preferences) - disponible a nivel de archivo
+private val Context.dataStore by preferencesDataStore(name = "user_prefs")
 
-// --- Definición de pantallas ---
-sealed class Screen(val route: String, val label: String? = null, val icon: ImageVector? = null) {
-    object Login : Screen("login")
-    object Carga : Screen("carga", "Carga de Datos", Icons.Default.Upload)
-    object Gestion : Screen("gestion", "Gestión de Datos", Icons.Default.Edit)
-    object UserAdmin : Screen("user_admin", "Usuarios", Icons.Default.Person)
+// -------------------------------------------------
+// Screen routes (simple sealed)
+sealed class Screen(val route: String, val label: String) {
+    object Login : Screen("login", "Login")
+    object Alertas : Screen("alertas", "Alertas")
+    object Dashboard : Screen("dashboard", "Dashboard")
+    object Reportes : Screen("reportes", "Reportes")
+    object Usuarios : Screen("usuarios", "Usuarios")
+    object Carga : Screen("carga", "Carga")
+    object Configuracion : Screen("configuracion", "Configuración")
 }
 
-val bottomNavItems = listOf(
-    Screen.Carga,
-    Screen.Gestion,
-    Screen.UserAdmin
-)
+// -------------------------------------------------
+// LoginViewModel real que usa Preferences DataStore para persistir la sesión
+class LoginViewModel(application: Application) : AndroidViewModel(application) {
+    // Usamos appContext para DataStore
+    private val appContext = getApplication<Application>().applicationContext
+    private val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
 
+    // Lee de DataStore si existe sesión guardada
+    suspend fun isUserLoggedIn(): Boolean {
+        return appContext.dataStore.data
+            .map { preferences -> preferences[IS_LOGGED_IN] ?: false }
+            .first()
+    }
+
+    // Guarda sesión en DataStore
+    fun saveSession() {
+        viewModelScope.launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[IS_LOGGED_IN] = true
+            }
+        }
+    }
+
+    // Borra sesión en DataStore
+    fun clearSession() {
+        viewModelScope.launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[IS_LOGGED_IN] = false
+            }
+        }
+    }
+}
+
+// Factory para crear LoginViewModel desde Compose pasando Application
+class LoginViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return LoginViewModel(application) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+// -------------------------------------------------
+// MainActivity completo y autocontenido
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        try {
-            enableEdgeToEdge()
-            setContent {
-                Proyecto1Theme {
-                    SistemaControlApp()
-                }
-            }
-            Log.d("MainActivity", "Activity creada exitosamente")
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error en onCreate", e)
-            throw e
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SistemaControlApp() {
-    val vm: PrediccionViewModel = viewModel()
-    var pantallaActual by remember { mutableStateOf<Pantalla>(Pantalla.Prediccion) }
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            DrawerMenu(
-                pantallaActual = pantallaActual,
-                onPantallaClick = { pantalla ->
-                    pantallaActual = pantalla
-                    scope.launch { drawerState.close() }
-                }
-            )
-        }
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            when (pantallaActual) {
-                                Pantalla.Dashboard -> "Dashboard y KPIs"
-                                Pantalla.CargaDatos -> "Carga de Datos"
-                                Pantalla.Prediccion -> "Predicción de Cumplimiento SLA"
-                                Pantalla.Alertas -> "Alertas"
-                                Pantalla.Reportes -> "Reportes"
-                                Pantalla.Usuarios -> "Usuarios"
-                                Pantalla.Configuracion -> "Configuración de SLA"
-                                Pantalla.Tendencia -> "Tendencia y Proyección"
-                            }
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menú")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = androidx.compose.ui.graphics.Color.White
-                    )
-                )
-            }
-        ) { innerPadding ->
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                when (pantallaActual) {
-                    Pantalla.Dashboard -> DashboardPlaceholder()
-                    Pantalla.CargaDatos -> CargaDatosPlaceholder()
-                    Pantalla.Prediccion -> PrediccionScreen(vm)
-                    Pantalla.Alertas -> AlertasPlaceholder()
-                    Pantalla.Reportes -> ReportesPlaceholder()
-                    Pantalla.Usuarios -> UsuariosPlaceholder()
-                    Pantalla.Configuracion -> ConfiguracionPlaceholder()
-                    Pantalla.Tendencia -> TendenciaScreen(vm)
-                }
-
-        enableEdgeToEdge()
         setContent {
-            Proyecto1Theme {
-                AppRoot()
+            MaterialTheme {
+                // Obtenemos la Application para pasarla a la Factory
+                val application = LocalContext.current.applicationContext as Application
+                val factory = remember { LoginViewModelFactory(application) }
+
+                // Pasamos el ViewModel instanciado correctamente con la Factory
+                AppRoot(loginViewModel = viewModel(factory = factory))
             }
         }
     }
 }
 
+// -------------------------------------------------
+// AppRoot: controla la separación estricta de NavHosts
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DrawerMenu(
-    pantallaActual: Pantalla,
-    onPantallaClick: (Pantalla) -> Unit
-) {
-    ModalDrawerSheet(
-        modifier = Modifier.width(280.dp),
-        drawerContainerColor = androidx.compose.ui.graphics.Color.White
+fun AppRoot(loginViewModel: LoginViewModel) {
+    // Estado central que determina qué NavHost se renderiza
+    val isLoggedIn = remember { mutableStateOf<Boolean?>(null) } // Inicializado como null
+
+    // Ruta pendiente para navegar en el NavHost de módulos una vez creado
+    val pendingRoute = remember { mutableStateOf<String?>(null) }
+
+    // Mostramos un Splash/Loading si aún no hemos comprobado la sesión
+    if (isLoggedIn.value == null) {
+        // CARGA INICIAL: consultamos al ViewModel si existe sesión guardada
+        LaunchedEffect(Unit) {
+            val saved = loginViewModel.isUserLoggedIn()
+            if (saved) {
+                // Si existe sesión persistida, marcamos logged in
+                isLoggedIn.value = true
+                pendingRoute.value = Screen.Alertas.route
+            } else {
+                // Garantizamos que el inicio de la app muestre Login
+                isLoggedIn.value = false
+            }
+        }
+        // Placeholder de Carga
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return // Salimos de la composición hasta que isLoggedIn no sea null
+    }
+
+    // Si NO está logueado -> sólo NavHost de Login
+    if (isLoggedIn.value == false) {
+        // NavController exclusivo para el flujo de login
+        val loginNavController = rememberNavController()
+
+        NavHost(
+            navController = loginNavController,
+            startDestination = Screen.Login.route
+        ) {
+            composable(Screen.Login.route) {
+                LoginScreen(onLoginSuccess = {
+                    // Guardamos sesión en ViewModel (persistencia)
+                    loginViewModel.saveSession()
+
+                    // Establecemos la ruta a la que el NavHost de módulos deberá navegar
+                    pendingRoute.value = Screen.Alertas.route
+
+                    // Cambiamos el estado central -> esto desmontará este NavHost (login)
+                    isLoggedIn.value = true
+                })
+            }
+        }
+    } else if (isLoggedIn.value == true) { // Solo si isLoggedIn es true
+        // Usuario logueado -> NavHost de Módulos con Drawer y BottomBar
+        val modulesNavController = rememberNavController()
+        val drawerState = rememberM3DrawerState(M3DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
+
+        // Cuando se monte el NavController de módulos, navegamos a la ruta pendiente si existe
+        LaunchedEffect(key1 = pendingRoute.value) {
+            pendingRoute.value?.let { route ->
+                modulesNavController.navigate(route) {
+                    // Limpia la pila si es necesario, aunque con esta estructura no es estrictamente necesario
+                    // ya que el NavHost de Login se desmontó completamente.
+                    launchSingleTop = true
+                }
+                pendingRoute.value = null
+            }
+        }
+
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet {
+                    DrawerMenu(
+                        onNavigateTo = { route ->
+                            scope.launch { drawerState.close() }
+                            modulesNavController.navigate(route) { launchSingleTop = true }
+                        },
+                        onLogout = {
+                            // Borramos sesión en ViewModel y cambiamos el estado central
+                            loginViewModel.clearSession()
+                            isLoggedIn.value = false
+                        }
+                    )
+                }
+            }
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Mi App - Módulos") },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                            }
+                        }
+                    )
+                },
+                bottomBar = {
+                    NavigationBar {
+                        val items = listOf(Screen.Alertas, Screen.Dashboard, Screen.Reportes)
+                        val currentDestination by modulesNavController.currentBackStackEntryAsState()
+                        val currentRoute = currentDestination?.destination?.route
+                        items.forEach { screen ->
+                            NavigationBarItem(
+                                selected = currentRoute == screen.route,
+                                onClick = { modulesNavController.navigate(screen.route) { launchSingleTop = true } },
+                                icon = { Icon(Icons.Filled.Report, contentDescription = null) },
+                                label = { Text(screen.label) }
+                            )
+                        }
+                    }
+                }
+            ) { innerPadding ->
+                NavHost(
+                    navController = modulesNavController,
+                    // Aseguramos que inicie en la ruta de Alertas por defecto
+                    startDestination = Screen.Alertas.route,
+                    modifier = Modifier.padding(innerPadding)
+                ) {
+                    composable(Screen.Alertas.route) { AlertasPlaceholder() }
+                    composable(Screen.Dashboard.route) { DashboardPlaceholder() }
+                    composable(Screen.Reportes.route) { ReportesPlaceholder() }
+                    composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
+                    composable(Screen.Carga.route) { CargaPlaceholder() }
+                    composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------
+// DrawerMenu, BottomBar, LoginScreen y Placeholders
+
+@Composable
+fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Top
     ) {
+        Text(text = "Menú", style = MaterialTheme.typography.titleLarge)
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        // Enlaces a módulos
+        Text(
+            text = "Alertas",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Alertas.route) }
+        )
+
+        Text(
+            text = "Dashboard",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Dashboard.route) }
+        )
+
+        Text(
+            text = "Reportes",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Reportes.route) }
+        )
+
+        Text(
+            text = "Usuarios",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Usuarios.route) }
+        )
+
+        Text(
+            text = "Carga",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Carga.route) }
+        )
+
+        Text(
+            text = "Configuración",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Configuracion.route) }
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Logout
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onLogout() }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.ExitToApp, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = "Cerrar sesión")
+        }
+    }
+}
+
+@Composable
+fun LoginScreen(onLoginSuccess: () -> Unit) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 16.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header del drawer
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 20.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Usuario",
-                    modifier = Modifier.size(48.dp),
-                    tint = androidx.compose.ui.graphics.Color(0xFF424242)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "admin",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = androidx.compose.ui.graphics.Color(0xFF212121)
-                )
-                Text(
-                    text = "Administrador",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.ui.graphics.Color(0xFF757575)
-                )
+            Text("Inicio de Sesión", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Usuario") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = {
+                // Simulación de éxito. La persistencia ocurre en AppRoot después de este callback.
+                onLoginSuccess()
+            }) {
+                Text("Entrar")
             }
-
-            HorizontalDivider()
-
-            // Opciones del menú según imagen (iconos básicos garantizados)
-            DrawerMenuItem(
-                icon = Icons.Default.Home,
-                title = "Inicio",
-                subtitle = "Dashboard y KPIs",
-                selected = pantallaActual == Pantalla.Dashboard,
-                onClick = { onPantallaClick(Pantalla.Dashboard) }
-            )
-
-            DrawerMenuItem(
-                icon = Icons.Default.Save,
-                title = "Carga de Datos",
-                subtitle = "Subir archivo Excel",
-                selected = pantallaActual == Pantalla.CargaDatos,
-                onClick = { onPantallaClick(Pantalla.CargaDatos) }
-            )
-
-            DrawerMenuItem(
-                icon = Icons.Default.Star,
-                title = "Predicción",
-                subtitle = "Análisis predictivo",
-                selected = pantallaActual == Pantalla.Prediccion,
-                onClick = { onPantallaClick(Pantalla.Prediccion) }
-            )
-
-            DrawerMenuItem(
-                icon = Icons.Default.Notifications,
-                title = "Alertas",
-                subtitle = "Notificaciones y alertas",
-                selected = pantallaActual == Pantalla.Alertas,
-                onClick = { onPantallaClick(Pantalla.Alertas) }
-            )
-
-            DrawerMenuItem(
-                icon = Icons.Default.List,
-                title = "Reportes",
-                subtitle = "Generar reportes PDF",
-                selected = pantallaActual == Pantalla.Reportes,
-                onClick = { onPantallaClick(Pantalla.Reportes) }
-            )
-
-            DrawerMenuItem(
-                icon = Icons.Default.Person,
-                title = "Usuarios",
-                subtitle = "Gestión de usuarios",
-                selected = pantallaActual == Pantalla.Usuarios,
-                onClick = { onPantallaClick(Pantalla.Usuarios) }
-            )
-
-            DrawerMenuItem(
-                icon = Icons.Default.Settings,
-                title = "Configuración",
-                subtitle = "Ajustes de la SLA",
-                selected = pantallaActual == Pantalla.Configuracion,
-                onClick = { onPantallaClick(Pantalla.Configuracion) }
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            HorizontalDivider()
-
-            // Cerrar sesión
-            NavigationDrawerItem(
-                icon = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
-                label = {
-                    Column {
-                        Text("Cerrar Sesión", style = MaterialTheme.typography.bodyMedium)
-                        Text("Salir del sistema", style = MaterialTheme.typography.bodySmall)
-                    }
-                },
-                selected = false,
-                onClick = { /* TODO: Implementar logout */ },
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun DrawerMenuItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    NavigationDrawerItem(
-        icon = { Icon(icon, contentDescription = null) },
-        label = {
-            Column {
-                Text(title, style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.ui.graphics.Color.Gray
-                )
-            }
-        },
-        selected = selected,
-        onClick = onClick,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-    )
-
-fun AppRoot() {
-
-    val navController = rememberNavController()
-    val isLoggedIn = remember { mutableStateOf(false) }
-
-    Scaffold(
-        bottomBar = {
-            if (isLoggedIn.value) {
-                NavigationBar {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
-
-                    bottomNavItems.forEach { screen ->
-                        NavigationBarItem(
-                            icon = { Icon(screen.icon!!, contentDescription = null) },
-                            label = { Text(screen.label!!) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    ) { innerPadding ->
-
-        val gestionViewModel: GestionDatosViewModel = viewModel()
-
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Login.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-
-            composable(Screen.Login.route) {
-                LoginScreen(
-                    onLoginSuccess = {
-                        isLoggedIn.value = true
-                        navController.navigate(Screen.Carga.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-            composable(Screen.Carga.route) {
-                CargaDatosScreen(gestionViewModel)
-            }
-
-            composable(Screen.Gestion.route) {
-                GestionDatosScreen(gestionViewModel)
-            }
-
-            composable(Screen.UserAdmin.route) {
-                UserListScreen()
-            }
-        }
-    }
-}
-
-// Pantallas placeholder
-@Composable
-fun DashboardPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Home,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = androidx.compose.ui.graphics.Color.Gray
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Dashboard", style = MaterialTheme.typography.headlineSmall)
-            Text("Por implementar", color = androidx.compose.ui.graphics.Color.Gray)
-        }
-    }
-}
-
-@Composable
-fun CargaDatosPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Save,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = androidx.compose.ui.graphics.Color.Gray
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Carga de Datos", style = MaterialTheme.typography.headlineSmall)
-            Text("Por implementar", color = androidx.compose.ui.graphics.Color.Gray)
         }
     }
 }
 
 @Composable
 fun AlertasPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Notifications,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = androidx.compose.ui.graphics.Color.Gray
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Alertas", style = MaterialTheme.typography.headlineSmall)
-            Text("Por implementar", color = androidx.compose.ui.graphics.Color.Gray)
-        }
-    }
+    PlaceholderScreen(title = "Alertas")
+}
+
+@Composable
+fun DashboardPlaceholder() {
+    PlaceholderScreen(title = "Dashboard")
 }
 
 @Composable
 fun ReportesPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.List,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = androidx.compose.ui.graphics.Color.Gray
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Reportes", style = MaterialTheme.typography.headlineSmall)
-            Text("Por implementar", color = androidx.compose.ui.graphics.Color.Gray)
-        }
-    }
+    PlaceholderScreen(title = "Reportes")
 }
 
 @Composable
 fun UsuariosPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Person,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = androidx.compose.ui.graphics.Color.Gray
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Usuarios", style = MaterialTheme.typography.headlineSmall)
-            Text("Por implementar", color = androidx.compose.ui.graphics.Color.Gray)
-        }
-    }
+    PlaceholderScreen(title = "Usuarios")
+}
+
+@Composable
+fun CargaPlaceholder() {
+    PlaceholderScreen(title = "Carga")
 }
 
 @Composable
 fun ConfiguracionPlaceholder() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Settings,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = androidx.compose.ui.graphics.Color.Gray
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Configuración de SLA", style = MaterialTheme.typography.headlineSmall)
-            Text("Por implementar", color = androidx.compose.ui.graphics.Color.Gray)
+    PlaceholderScreen(title = "Configuración")
+}
+
+@Composable
+fun PlaceholderScreen(title: String) {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = title, style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Contenido de $title...")
         }
-    }
-}
-
-sealed class Pantalla {
-    object Dashboard : Pantalla()
-    object CargaDatos : Pantalla()
-    object Prediccion : Pantalla()
-    object Alertas : Pantalla()
-    object Reportes : Pantalla()
-    object Usuarios : Pantalla()
-    object Configuracion : Pantalla()
-    object Tendencia : Pantalla()
-}
-
-fun PreviewMain() {
-    Proyecto1Theme {
-        AppRoot()
     }
 }

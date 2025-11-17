@@ -148,8 +148,10 @@ dependencies {
 
         // ViewModel para Compose
         implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
-
+        implementation("androidx.datastore:datastore-preferences:1.0.0") // O la versión más reciente
+        implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2") // O la versión más reciente
         // ... otras dependencias
     }
 
+}
 }
