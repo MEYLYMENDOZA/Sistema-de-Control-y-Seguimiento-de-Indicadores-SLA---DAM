@@ -35,6 +35,7 @@ import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.example.proyecto1.ui.login.LoginScreen
 
 // DataStore delegate (Preferences) - disponible a nivel de archivo
 private val Context.dataStore by preferencesDataStore(name = "user_prefs")
@@ -52,44 +53,24 @@ sealed class Screen(val route: String, val label: String) {
 }
 
 // -------------------------------------------------
-// LoginViewModel real que usa Preferences DataStore para persistir la sesión
-class LoginViewModel(application: Application) : AndroidViewModel(application) {
-    // Usamos appContext para DataStore
+// SessionViewModel (antes LoginViewModel) que usa Preferences DataStore para persistir la sesión
+class SessionViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = getApplication<Application>().applicationContext
     private val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
 
-    // Lee de DataStore si existe sesión guardada
-    suspend fun isUserLoggedIn(): Boolean {
-        return appContext.dataStore.data
-            .map { preferences -> preferences[IS_LOGGED_IN] ?: false }
-            .first()
-    }
+    suspend fun isUserLoggedIn(): Boolean = appContext.dataStore.data
+        .map { it[IS_LOGGED_IN] ?: false }
+        .first()
 
-    // Guarda sesión en DataStore
-    fun saveSession() {
-        viewModelScope.launch {
-            appContext.dataStore.edit { prefs ->
-                prefs[IS_LOGGED_IN] = true
-            }
-        }
-    }
-
-    // Borra sesión en DataStore
-    fun clearSession() {
-        viewModelScope.launch {
-            appContext.dataStore.edit { prefs ->
-                prefs[IS_LOGGED_IN] = false
-            }
-        }
-    }
+    fun saveSession() { viewModelScope.launch { appContext.dataStore.edit { it[IS_LOGGED_IN] = true } } }
+    fun clearSession() { viewModelScope.launch { appContext.dataStore.edit { it[IS_LOGGED_IN] = false } } }
 }
 
-// Factory para crear LoginViewModel desde Compose pasando Application
-class LoginViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
+class SessionViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
+        if (modelClass.isAssignableFrom(SessionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return LoginViewModel(application) as T
+            return SessionViewModel(application) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -103,12 +84,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                // Obtenemos la Application para pasarla a la Factory
                 val application = LocalContext.current.applicationContext as Application
-                val factory = remember { LoginViewModelFactory(application) }
-
-                // Pasamos el ViewModel instanciado correctamente con la Factory
-                AppRoot(loginViewModel = viewModel(factory = factory))
+                val factory = remember { SessionViewModelFactory(application) }
+                AppRoot(sessionViewModel = viewModel(factory = factory))
             }
         }
     }
@@ -118,102 +96,51 @@ class MainActivity : ComponentActivity() {
 // AppRoot: controla la separación estricta de NavHosts
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot(loginViewModel: LoginViewModel) {
-    // Estado central que determina qué NavHost se renderiza
-    val isLoggedIn = remember { mutableStateOf<Boolean?>(null) } // Inicializado como null
+fun AppRoot(sessionViewModel: SessionViewModel) {
+    val isLoggedIn = remember { mutableStateOf<Boolean?>(null) }
 
-    // Ruta pendiente para navegar en el NavHost de módulos una vez creado
-    val pendingRoute = remember { mutableStateOf<String?>(null) }
-
-    // Mostramos un Splash/Loading si aún no hemos comprobado la sesión
     if (isLoggedIn.value == null) {
-        // CARGA INICIAL: consultamos al ViewModel si existe sesión guardada
-        LaunchedEffect(Unit) {
-            val saved = loginViewModel.isUserLoggedIn()
-            if (saved) {
-                // Si existe sesión persistida, marcamos logged in
-                isLoggedIn.value = true
-                pendingRoute.value = Screen.Alertas.route
-            } else {
-                // Garantizamos que el inicio de la app muestre Login
-                isLoggedIn.value = false
-            }
-        }
-        // Placeholder de Carga
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return // Salimos de la composición hasta que isLoggedIn no sea null
+        LaunchedEffect(Unit) { isLoggedIn.value = sessionViewModel.isUserLoggedIn() }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
     }
 
-    // Si NO está logueado -> sólo NavHost de Login
     if (isLoggedIn.value == false) {
-        // NavController exclusivo para el flujo de login
         val loginNavController = rememberNavController()
-
-        NavHost(
-            navController = loginNavController,
-            startDestination = Screen.Login.route
-        ) {
+        NavHost(navController = loginNavController, startDestination = Screen.Login.route) {
             composable(Screen.Login.route) {
+                // Usa LoginScreen avanzado desde ui.login
                 LoginScreen(onLoginSuccess = {
-                    // Guardamos sesión en ViewModel (persistencia)
-                    loginViewModel.saveSession()
-
-                    // Establecemos la ruta a la que el NavHost de módulos deberá navegar
-                    pendingRoute.value = Screen.Alertas.route
-
-                    // Cambiamos el estado central -> esto desmontará este NavHost (login)
+                    sessionViewModel.saveSession()
                     isLoggedIn.value = true
                 })
             }
         }
-    } else if (isLoggedIn.value == true) { // Solo si isLoggedIn es true
-        // Usuario logueado -> NavHost de Módulos con Drawer y BottomBar
+    } else {
         val modulesNavController = rememberNavController()
         val drawerState = rememberM3DrawerState(M3DrawerValue.Closed)
         val scope = rememberCoroutineScope()
 
-        // Cuando se monte el NavController de módulos, navegamos a la ruta pendiente si existe
-        LaunchedEffect(key1 = pendingRoute.value) {
-            pendingRoute.value?.let { route ->
-                modulesNavController.navigate(route) {
-                    // Limpia la pila si es necesario, aunque con esta estructura no es estrictamente necesario
-                    // ya que el NavHost de Login se desmontó completamente.
-                    launchSingleTop = true
-                }
-                pendingRoute.value = null
+        ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
+            ModalDrawerSheet {
+                DrawerMenu(
+                    onNavigateTo = { route ->
+                        scope.launch { drawerState.close() }
+                        modulesNavController.navigate(route) { launchSingleTop = true }
+                    },
+                    onLogout = {
+                        sessionViewModel.clearSession(); isLoggedIn.value = false
+                    }
+                )
             }
-        }
-
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-                ModalDrawerSheet {
-                    DrawerMenu(
-                        onNavigateTo = { route ->
-                            scope.launch { drawerState.close() }
-                            modulesNavController.navigate(route) { launchSingleTop = true }
-                        },
-                        onLogout = {
-                            // Borramos sesión en ViewModel y cambiamos el estado central
-                            loginViewModel.clearSession()
-                            isLoggedIn.value = false
-                        }
-                    )
-                }
-            }
-        ) {
+        }) {
             Scaffold(
                 topBar = {
-                    TopAppBar(
-                        title = { Text("Mi App - Módulos") },
-                        navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
-                            }
+                    TopAppBar(title = { Text("Mi App - Módulos") }, navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
                         }
-                    )
+                    })
                 },
                 bottomBar = {
                     NavigationBar {
@@ -233,7 +160,6 @@ fun AppRoot(loginViewModel: LoginViewModel) {
             ) { innerPadding ->
                 NavHost(
                     navController = modulesNavController,
-                    // Aseguramos que inicie en la ruta de Alertas por defecto
                     startDestination = Screen.Alertas.route,
                     modifier = Modifier.padding(innerPadding)
                 ) {
@@ -323,44 +249,6 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
     }
 }
 
-@Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Inicio de Sesión", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("Usuario") }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                visualTransformation = PasswordVisualTransformation()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = {
-                // Simulación de éxito. La persistencia ocurre en AppRoot después de este callback.
-                onLoginSuccess()
-            }) {
-                Text("Entrar")
-            }
-        }
-    }
-}
 
 @Composable
 fun AlertasPlaceholder() {

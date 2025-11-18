@@ -47,111 +47,74 @@ android {
     }
 
     composeOptions {
-        // ESTE ES EL COMPILADOR DE COMPOSE PARA KOTLIN 2.0
-        kotlinCompilerExtensionVersion = "1.5.14"
+        // Actualizado a versión alineada con Kotlin 2.0 y últimas mejoras de Compose
+        kotlinCompilerExtensionVersion = "1.7.8"
     }
 
     packaging {
         resources.excludes.add("/META-INF/{AL2.0,LGPL2.1}")
-
-    packagingOptions {
-        // Excluir archivos de licencia de Apache POI para evitar conflictos
-        exclude("META-INF/licenses/poi/*")
-        exclude("META-INF/LICENSE")
-        exclude("META-INF/NOTICE")
-
+        resources.excludes.add("META-INF/licenses/poi/*")
+        resources.excludes.add("META-INF/LICENSE")
+        resources.excludes.add("META-INF/NOTICE")
     }
 }
 
 dependencies {
 
-    val composeBom = platform("androidx.compose:compose-bom:2024.05.00")
+    // BOM alineado a versión reciente compatible con compiler 1.7.8
+    val composeBom = platform("androidx.compose:compose-bom:2024.09.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
+    // Core Compose & Material3
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    // Íconos Material (conjunto extendido para acceder a más íconos como Cloud, PowerSettingsNew, etc.)
-    implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
+    // Icons extendidos (se mantiene, versión gestionada por BOM; quitar versión explícita anterior)
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // Activity Compose
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // ViewModel + Compose modern (Flow)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
-    // Proporciona la función viewModel() para Compose (alineada con lifecycle 2.8.0)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+    // Navigation Compose (última estable compatible con BOM)
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Lifecycle / ViewModel Compose
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.3")
+
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Retrofit para llamadas HTTP
+    // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
-    // Firebase BOM
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.3.0"))
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
+    // Material Components
+    implementation("com.google.android.material:material:1.12.0")
 
-    implementation("com.google.android.material:material:1.12.0") 
-    implementation("androidx.compose.material:material-icons-extended:1.6.7")
-    implementation("com.itextpdf:itextg:5.5.10") // This was the missing line
-    implementation(libs.androidx.navigation.runtime.ktx)
-    implementation(libs.androidx.navigation.compose)
+    // PDF y Excel
+    implementation("com.itextpdf:itextg:5.5.10")
+    implementation(libs.apache.poi)
 
-    // DEPENDENCIAS ESPECÍFICAS
-    implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.apache.poi) // Librería para leer Excel .xlsx
-
-
+    // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    // ViewModel
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3")
-// LiveData (útil, aunque este ejemplo usa StateFlow)
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.3")
-    dependencies {
-        // ... otras dependencias
-
-        // Compose (Asegúrate de tener estas)
-        implementation("androidx.activity:activity-compose:1.9.0")
-        implementation(platform("androidx.compose:compose-bom:2024.06.00"))
-        implementation("androidx.compose.ui:ui")
-        implementation("androidx.compose.ui:ui-graphics")
-        implementation("androidx.compose.ui:ui-tooling-preview")
-        implementation("androidx.compose.material3:material3")
-
-        // Íconos (necesarios para Icons.Default.Menu, etc.)
-        implementation("androidx.compose.material:material-icons-extended")
-
-        // ViewModel para Compose
-        implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
-        implementation("androidx.datastore:datastore-preferences:1.0.0") // O la versión más reciente
-        implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2") // O la versión más reciente
-        // ... otras dependencias
-    }
-
-}
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }

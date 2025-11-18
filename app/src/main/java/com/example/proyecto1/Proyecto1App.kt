@@ -9,9 +9,11 @@ class Proyecto1App : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        android.util.Log.d("Proyecto1App", "Application onCreate - iniciando")
         try {
             // Inicializa Firebase con la configuración provista por google-services.json
             FirebaseApp.initializeApp(this)
+            android.util.Log.d("Proyecto1App", "FirebaseApp.initializeApp OK")
 
             // Configurar Firestore con persistencia local habilitada
             val settings = FirebaseFirestoreSettings.Builder()
@@ -19,10 +21,10 @@ class Proyecto1App : Application() {
                 .build()
 
             FirebaseFirestore.getInstance().firestoreSettings = settings
+            android.util.Log.d("Proyecto1App", "Firestore settings aplicados")
         } catch (e: Exception) {
             // Log del error en caso de fallo de inicialización
             android.util.Log.e("Proyecto1App", "Error al inicializar Firebase", e)
         }
     }
 }
-

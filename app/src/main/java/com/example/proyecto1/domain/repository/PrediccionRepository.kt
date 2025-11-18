@@ -11,11 +11,14 @@ class PrediccionRepository(
 ) {
     private val TAG = "PrediccionRepository"
 
-    private fun Number?.toDoubleSafe(): Double = when (this) {
+    // Función auxiliar para convertir distintos tipos numéricos a Double de forma segura
+    private fun Any?.toDoubleSafe(): Double = when (this) {
         is Double -> this
         is Float -> this.toDouble()
         is Long -> this.toDouble()
         is Int -> this.toDouble()
+        is Number -> this.toDouble()
+        is String -> this.toDoubleOrNull() ?: 0.0
         else -> 0.0
     }
 
@@ -34,16 +37,36 @@ class PrediccionRepository(
 
             Log.d(TAG, "Documentos encontrados: ${snapshot.size()}")
 
-            val docs = snapshot.documents.sortedBy {
-                // Orden por un campo "orden" o por mes si existe
-                (it.getLong("orden") ?: it.getString("mes")?.toLongOrNull() ?: 0L)
+            // Ordenamos por un campo 'orden' si existe, si no por 'mes' (esperando formato numérico o yyyy-MM),
+            // si no existe ninguno, mantenemos orden por id o por el orden devuelto.
+            val docs = snapshot.documents.sortedBy { doc ->
+                val orden = doc.get("orden")
+                if (orden != null) {
+                    orden.toDoubleSafe()
+                } else {
+                    val mes = doc.get("mes")
+                    // Si mes es yyyy-MM, extraemos el año y mes como número: yyyy*12 + mm
+                    when (mes) {
+                        is String -> {
+                            val parts = mes.split("-")
+                            if (parts.size >= 2) {
+                                val y = parts[0].toIntOrNull() ?: 0
+                                val m = parts[1].toIntOrNull() ?: 0
+                                (y * 12 + m).toDouble()
+                            } else {
+                                mes.toDoubleOrNull() ?: 0.0
+                            }
+                        }
+                        else -> mes?.toString()?.toDoubleOrNull() ?: 0.0
+                    }
+                }
             }
 
             val history = docs.mapIndexed { index, doc ->
-                val raw = doc.get("porcentajeSla")
-                val slaVal = if (raw is Number) raw.toDouble() else (raw as? String)?.toDoubleOrNull() ?: 0.0
+                val raw = doc.get("porcentajeSla") ?: doc.get("porcentaje_sla") ?: doc.get("sla")
+                val slaVal = raw.toDoubleSafe()
 
-                Log.d(TAG, "Mes ${index + 1}: SLA = $slaVal%")
+                Log.d(TAG, "Mes ${index + 1}: SLA = $slaVal% (docId=${doc.id})")
 
                 SlaHistory(
                     monthIndex = index + 1,
@@ -61,7 +84,7 @@ class PrediccionRepository(
 
             Log.d(TAG, "Calculando regresión lineal...")
             val model = LinearRegression(x, y)
-            val next = x.max() + 1
+            val next = (x.maxOrNull() ?: 0.0) + 1.0
             val pred = model.predict(next)
 
             Log.d(TAG, "Predicción para mes ${next.toInt()}: $pred%")
