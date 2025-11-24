@@ -1,4 +1,4 @@
-package com.example.proyecto1 // ASUMO QUE TU CLASE MAINACTIVITY ESTÁ EN ESTE PACKAGE
+package com.example.proyecto1
 
 import android.app.Application
 import android.content.Context
@@ -14,8 +14,7 @@ import androidx.compose.material.icons.filled.Report
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext // NECESARIO PARA OBTENER EL CONTEXTO
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -32,6 +31,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.compose.material3.*
 import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
+import com.example.proyecto1.ui.gestion.GestionModuleScreen // <-- IMPORTACIÓN AÑADIDA
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -167,7 +167,10 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                     composable(Screen.Dashboard.route) { DashboardPlaceholder() }
                     composable(Screen.Reportes.route) { ReportesPlaceholder() }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
-                    composable(Screen.Carga.route) { CargaPlaceholder() }
+                    composable(Screen.Carga.route) { 
+                        // <-- INTEGRACIÓN REALIZADA
+                        GestionModuleScreen() 
+                    }
                     composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
                 }
             }
