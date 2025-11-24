@@ -1,4 +1,4 @@
-package com.example.proyecto1.ui.report
+package com.example.proyecto1.ui.configuracion
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

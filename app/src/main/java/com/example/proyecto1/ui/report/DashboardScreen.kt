@@ -14,10 +14,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.proyecto1.ui.theme.Black
 import com.example.proyecto1.ui.theme.GreenProgress
 import com.example.proyecto1.ui.theme.RedProgress
-import com.example.proyecto1.ui.theme.White
+import com.example.proyecto1.ui.theme.SurfaceWhite
+import com.example.proyecto1.ui.theme.TextBlack
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +35,7 @@ fun DashboardScreen(navController: NavController, openDrawer: () -> Unit) {
                         Icon(Icons.Filled.Menu, contentDescription = "Navigation menu")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = White, titleContentColor = Black)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWhite, titleContentColor = TextBlack)
             )
         },
         floatingActionButton = {
@@ -43,8 +43,8 @@ fun DashboardScreen(navController: NavController, openDrawer: () -> Unit) {
                 onClick = { /* showConfirmationDialog = true */ },
                 icon = { Icon(Icons.Filled.Download, "Download") },
                 text = { Text(text = "Exportar PDF") },
-                containerColor = Black,
-                contentColor = White
+                containerColor = TextBlack,
+                contentColor = SurfaceWhite
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -80,14 +80,14 @@ fun DashboardScreen(navController: NavController, openDrawer: () -> Unit) {
 // ... Rest of the card Composables remain the same ...
 @Composable
 fun GenerateReportCard(navController: NavController, showSnackbar: (String) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SurfaceWhite)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Generar Reportes", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = { navController.navigate("report_preview") },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Black)
+                colors = ButtonDefaults.buttonColors(containerColor = TextBlack, contentColor = SurfaceWhite)
             ) {
                 Text("Descargar PDF")
             }
@@ -111,7 +111,7 @@ fun GenerateReportCard(navController: NavController, showSnackbar: (String) -> U
 
 @Composable
 fun ReportPreviewCard() {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SurfaceWhite)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Vista Previa del Reporte", style = MaterialTheme.typography.titleMedium)
             Text("Resumen de los indicadores SLA", style = MaterialTheme.typography.bodySmall)
@@ -146,7 +146,7 @@ fun KpiCard(value: String, label: String, backgroundColor: Color = Color.LightGr
 
 @Composable
 fun ComplianceByTypeCard() {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SurfaceWhite)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Cumplimiento por Tipo de SLA", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(16.dp))
@@ -168,7 +168,7 @@ fun ComplianceByTypeCard() {
 
 @Composable
 fun ComplianceByRoleCard() {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SurfaceWhite)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Cumplimiento por Rol", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(16.dp))
@@ -200,7 +200,7 @@ fun ComplianceByRoleCard() {
 
 @Composable
 fun Last10RecordsCard() {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = SurfaceWhite)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Últimos 10 Registros", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(16.dp))

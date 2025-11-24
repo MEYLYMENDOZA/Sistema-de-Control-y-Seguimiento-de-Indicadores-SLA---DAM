@@ -7,179 +7,157 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.apache.poi.ss.usermodel.CellType
-import org.apache.poi.ss.usermodel.DateUtil
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.poi.ss.usermodel.DataFormatter
+import org.apache.poi.ss.usermodel.WorkbookFactory
+import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-sealed class UiEvent {
-    data class ShowSnackbar(val message: String) : UiEvent()
-}
-
-data class GestionDatosState(
+// Unica clase de estado para ambas pantallas
+data class GestionUiState(
+    // Comun
     val isLoading: Boolean = false,
+
+    // Para CargaDatosScreen
     val dataLoaded: Boolean = false,
-    val records: List<SlaRecord> = emptyList(),
-    val selectedRecordIds: Set<String> = emptySet(),
-    val searchQuery: String = "",
     val totalRecords: Int = 0,
     val compliant: Int = 0,
-    val nonCompliant: Int = 0
+    val nonCompliant: Int = 0,
+
+    // Para GestionDatosScreen
+    val records: List<SlaRecord> = emptyList(),
+    val selectedRecordIds: Set<String> = emptySet(),
+    val searchQuery: String = ""
 )
 
 class GestionDatosViewModel(application: Application) : AndroidViewModel(application) {
 
-    var uiState by mutableStateOf(GestionDatosState())
+    var uiState by mutableStateOf(GestionUiState())
         private set
 
-    private val _eventFlow = MutableSharedFlow<UiEvent>()
-    val eventFlow = _eventFlow.asSharedFlow()
+    private val repository = SlaRepository()
 
-    fun onFileSelected(uri: Uri?) {
-        if (uri == null) return
-        uiState = uiState.copy(isLoading = true, dataLoaded = false)
-
+    init {
         viewModelScope.launch {
-            try {
-                val records = withContext(Dispatchers.IO) {
-                    parseExcelFile(uri)
-                }
-
-                if (records.isEmpty()) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Error: No se encontraron filas con datos válidos. Verifique el formato del archivo."))
-                    uiState = uiState.copy(isLoading = false)
-                    return@launch
-                }
-
-                val total = records.size
-                val compliant = records.count { it.cumple }
-                val nonCompliant = total - compliant
-
-                delay(1000)
-
+            uiState = uiState.copy(isLoading = true)
+            repository.getSlaRecords().collect { records ->
                 uiState = uiState.copy(
-                    isLoading = false,
-                    dataLoaded = true,
                     records = records,
-                    totalRecords = total,
-                    compliant = compliant,
-                    nonCompliant = nonCompliant
+                    isLoading = false
                 )
-                _eventFlow.emit(UiEvent.ShowSnackbar("¡Archivo procesado con ${records.size} registros!"))
-
-            } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Error crítico al leer el archivo: ${e.message}"))
-                uiState = uiState.copy(isLoading = false, dataLoaded = false)
             }
         }
     }
 
-    private fun parseExcelFile(uri: Uri): List<SlaRecord> {
-        val records = mutableListOf<SlaRecord>()
-        val contentResolver = getApplication<Application>().contentResolver
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    // --- Lógica de Carga de Archivos ---
 
-        contentResolver.openInputStream(uri)?.use { inputStream ->
-            val workbook = XSSFWorkbook(inputStream)
+    fun onFileSelected(uri: Uri?) {
+        if (uri == null) return
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true)
+            try {
+                val inputStream = getApplication<Application>().contentResolver.openInputStream(uri)
+                val records = parseExcelFile(inputStream)
+                repository.uploadSlaRecords(records)
+
+                val total = records.size
+                val compliantCount = records.count { it.cumple }
+
+                uiState = uiState.copy(
+                    dataLoaded = true,
+                    totalRecords = total,
+                    compliant = compliantCount,
+                    nonCompliant = total - compliantCount
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Aquí se podría actualizar la UI con un mensaje de error
+            } finally {
+                uiState = uiState.copy(isLoading = false)
+            }
+        }
+    }
+
+    private fun parseExcelFile(inputStream: InputStream?): List<SlaRecord> {
+        val records = mutableListOf<SlaRecord>()
+        val dataFormatter = DataFormatter()
+        inputStream.use { stream ->
+            val workbook = WorkbookFactory.create(stream)
             val sheet = workbook.getSheetAt(0)
+            val headerRow = sheet.getRow(0).cellIterator().asSequence().map { it.stringCellValue.trim() }.toList()
 
             for (i in 1..sheet.lastRowNum) {
                 val row = sheet.getRow(i) ?: continue
+                val recordMap = headerRow.zip(row.cellIterator().asSequence().map { cell -> dataFormatter.formatCellValue(cell) }.toList()).toMap()
 
-                try {
-                    val rol = row.getCell(0)?.stringCellValue?.trim() ?: ""
-                    val tipoSla = row.getCell(3)?.stringCellValue?.trim() ?: ""
-                    var codigo = row.getCell(4)?.stringCellValue?.trim() ?: ""
+                val fechaSolicitud = recordMap["Fecha Solicitud"] ?: ""
+                val fechaIngreso = recordMap["Fecha Ingreso"] ?: ""
+                val tipoSla = recordMap["Tipo SLA"] ?: ""
 
-                    if (rol.isBlank() || tipoSla.isBlank()) continue
-                    if (tipoSla !in listOf("SLA1", "SLA2")) continue
-                    if (codigo.isBlank()) codigo = "N/A-${UUID.randomUUID().toString().substring(0, 4)}"
+                val (dias, cumple) = calculateSla(fechaSolicitud, fechaIngreso, tipoSla)
 
-                    val fechaSolicitudDate = getCellDateValue(row.getCell(1))
-                    val fechaIngresoDate = getCellDateValue(row.getCell(2))
-
-                    if (fechaSolicitudDate == null || fechaIngresoDate == null) continue
-
-                    val diffMillis = fechaIngresoDate.time - fechaSolicitudDate.time
-                    val diasSla = TimeUnit.DAYS.convert(diffMillis, TimeUnit.MILLISECONDS).toInt()
-
-                    val cumple = when (tipoSla) {
-                        "SLA1" -> diasSla < 35
-                        "SLA2" -> diasSla < 20
-                        else -> false
-                    }
-
-                    records.add(SlaRecord(
-                        id = UUID.randomUUID().toString(),
-                        codigo = codigo,
-                        rol = rol,
-                        fechaSolicitud = dateFormat.format(fechaSolicitudDate),
-                        fechaIngreso = dateFormat.format(fechaIngresoDate),
+                records.add(
+                    SlaRecord(
+                        id = "", // Firestore generará el ID
+                        codigo = recordMap["Código"] ?: "N/A",
+                        rol = recordMap["Rol"] ?: "",
+                        fechaSolicitud = fechaSolicitud,
+                        fechaIngreso = fechaIngreso,
                         tipoSla = tipoSla,
-                        diasSla = diasSla,
+                        diasSla = dias,
                         cumple = cumple
-                    ))
-                } catch (e: Exception) {
-                    continue
-                }
+                    )
+                )
             }
         }
         return records
     }
 
-    private fun getCellDateValue(cell: org.apache.poi.ss.usermodel.Cell?): Date? {
-        if (cell == null) return null
-        return try {
-            when (cell.cellType) {
-                CellType.NUMERIC -> if (DateUtil.isCellDateFormatted(cell)) cell.dateCellValue else null
-                CellType.STRING -> {
-                    // Intenta parsear diferentes formatos de fecha comunes
-                    val dateFormats = listOf("dd/MM/yyyy", "d/M/yy", "d-MMM-yy", "yyyy-MM-dd")
-                    for (format in dateFormats) {
-                        try {
-                            return SimpleDateFormat(format, Locale.getDefault()).parse(cell.stringCellValue)
-                        } catch (e: Exception) { /* Intenta el siguiente formato */ }
-                    }
-                    null
+    private fun calculateSla(fechaSolicitud: String, fechaIngreso: String, tipoSla: String): Pair<Int, Boolean> {
+        try {
+            val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            val date1 = dateFormat.parse(fechaSolicitud)
+            val date2 = dateFormat.parse(fechaIngreso)
+            if (date1 != null && date2 != null) {
+                val diff = date2.time - date1.time
+                val dias = TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS).toInt()
+                val cumple = when (tipoSla) {
+                    "SLA1" -> dias < 35
+                    "SLA2" -> dias < 20
+                    else -> false
                 }
-                else -> null
+                return dias to cumple
             }
-        } catch (e: Exception) {
-            null
-        }
+        } catch (e: Exception) { /* Silently fail */ }
+        return 0 to false
     }
 
     fun onCleanDataClicked() {
-        uiState = GestionDatosState()
         viewModelScope.launch {
-            _eventFlow.emit(UiEvent.ShowSnackbar("Datos limpiados. Puede cargar un nuevo archivo."))
+            repository.deleteAllRecords()
+            uiState = uiState.copy(
+                dataLoaded = false,
+                totalRecords = 0,
+                compliant = 0,
+                nonCompliant = 0
+            )
         }
     }
 
+    // --- Lógica de Gestión (existente) ---
+
+    fun onSaveRecord(record: SlaRecord) {
+        viewModelScope.launch { repository.updateSlaRecord(record) }
+    }
+
     fun onDeleteSelectedClicked() {
-        if (uiState.selectedRecordIds.isEmpty()) return
-        val remainingRecords = uiState.records.filterNot { it.id in uiState.selectedRecordIds }
-        val deletedCount = uiState.records.size - remainingRecords.size
-        val total = remainingRecords.size
-        val compliant = remainingRecords.count { it.cumple }
-        val nonCompliant = total - compliant
-        uiState = uiState.copy(
-            records = remainingRecords,
-            selectedRecordIds = emptySet(),
-            totalRecords = total,
-            compliant = compliant,
-            nonCompliant = nonCompliant
-        )
         viewModelScope.launch {
-            _eventFlow.emit(UiEvent.ShowSnackbar("$deletedCount registro(s) eliminado(s)."))
+            repository.deleteSlaRecords(uiState.selectedRecordIds.toList())
+            uiState = uiState.copy(selectedRecordIds = emptySet())
         }
     }
 
@@ -188,31 +166,14 @@ class GestionDatosViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun onRecordSelectionChanged(recordId: String, isSelected: Boolean) {
-        val newSelection = uiState.selectedRecordIds.toMutableSet()
-        if (isSelected) newSelection.add(recordId) else newSelection.remove(recordId)
-        uiState = uiState.copy(selectedRecordIds = newSelection)
+        val newSelectedIds = uiState.selectedRecordIds.toMutableSet()
+        if (isSelected) newSelectedIds.add(recordId) else newSelectedIds.remove(recordId)
+        uiState = uiState.copy(selectedRecordIds = newSelectedIds)
     }
 
-    fun onSelectAllFiltered(filteredIds: List<String>, shouldSelect: Boolean) {
-        val currentSelection = uiState.selectedRecordIds.toMutableSet()
-        if (shouldSelect) currentSelection.addAll(filteredIds) else currentSelection.removeAll(filteredIds.toSet())
-        uiState = uiState.copy(selectedRecordIds = currentSelection)
-    }
-
-    fun onSaveRecord(updatedRecord: SlaRecord) {
-        val updatedList = uiState.records.map { if (it.id == updatedRecord.id) updatedRecord else it }
-        val total = updatedList.size
-        val compliant = updatedList.count { it.cumple }
-        val nonCompliant = total - compliant
-
-        uiState = uiState.copy(
-            records = updatedList,
-            totalRecords = total,
-            compliant = compliant,
-            nonCompliant = nonCompliant
-        )
-        viewModelScope.launch {
-            _eventFlow.emit(UiEvent.ShowSnackbar("Registro ${updatedRecord.codigo} actualizado."))
-        }
+    fun onSelectAllFiltered(filteredIds: List<String>, selectAll: Boolean) {
+        val currentSelected = uiState.selectedRecordIds.toMutableSet()
+        if (selectAll) currentSelected.addAll(filteredIds) else currentSelected.removeAll(filteredIds.toSet())
+        uiState = uiState.copy(selectedRecordIds = currentSelected)
     }
 }

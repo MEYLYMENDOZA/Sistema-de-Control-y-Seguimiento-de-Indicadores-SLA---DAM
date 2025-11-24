@@ -1,7 +1,7 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
 }
 
@@ -9,12 +9,11 @@ plugins {
 android {
     namespace = "com.example.proyecto1"
 
-    compileSdk = 36
-
+    compileSdk = 34 // Usando la última versión estable
 
     defaultConfig {
         applicationId = "com.example.proyecto1"
-        minSdk = 26  // Cambiado de 24 a 26 para soportar adaptive icons
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -47,8 +46,8 @@ android {
     }
 
     composeOptions {
-        // Actualizado a versión alineada con Kotlin 2.0 y últimas mejoras de Compose
-        kotlinCompilerExtensionVersion = "1.7.8"
+        // Versión del compilador compatible con Kotlin 2.0.0
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
 
     packaging {
@@ -61,12 +60,12 @@ android {
 
 dependencies {
 
-    // BOM alineado a versión reciente compatible con compiler 1.7.8
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.01")
+    // BOM alineado a una versión estable compatible con el nuevo compilador
+    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
-    // Core Compose & Material3
+    // Core Compose & Material3 (las versiones se gestionan con el BOM)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -74,13 +73,13 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    // Icons extendidos (se mantiene, versión gestionada por BOM; quitar versión explícita anterior)
+    // Icons extendidos
     implementation("androidx.compose.material:material-icons-extended")
 
     // Activity Compose
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Navigation Compose (última estable compatible con BOM)
+    // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
     // Lifecycle / ViewModel Compose
