@@ -3,7 +3,6 @@ package com.example.proyecto1.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto1.ui.gestion.GestionDatosViewModel
-import com.example.proyecto1.ui.gestion.SlaRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,8 +12,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-// Nueva clase de datos para el gráfico de barras por rol
 data class RoleCompliance(val role: String, val compliantCount: Int, val nonCompliantCount: Int)
+data class MonthlyCompliance(val yearMonth: String, val percentage: Float)
 
 data class HomeUiState(
     val roles: List<String> = emptyList(),
@@ -28,7 +27,8 @@ data class HomeUiState(
     val totalCases: Int = 0,
     val compliantCases: Int = 0,
     val nonCompliantCases: Int = 0,
-    val complianceByRole: List<RoleCompliance> = emptyList() // Nuevo estado
+    val complianceByRole: List<RoleCompliance> = emptyList(),
+    val monthlyCompliance: List<MonthlyCompliance> = emptyList()
 )
 
 class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() {
@@ -43,7 +43,8 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
         gestionDatosViewModel.uiState, _selectedRole, _selectedSlaType, _selectedPeriod
     ) { gestionState, role, slaType, period ->
         val records = gestionState.records
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val inputFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("yyyy-MM", Locale.getDefault())
 
         val filteredRecords = records
             .filter { role == "Todos los roles" || it.rol == role }
@@ -51,7 +52,7 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
             .filter { record ->
                 if (period == "Todo el periodo") true else {
                     try {
-                        val recordDate = dateFormat.parse(record.fechaIngreso) ?: return@filter false
+                        val recordDate = inputFormat.parse(record.fechaIngreso) ?: return@filter false
                         val limitDate = Calendar.getInstance().apply {
                             when (period) {
                                 "Últimos 7 días" -> add(Calendar.DAY_OF_YEAR, -7)
@@ -72,16 +73,21 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
         val percentage = if (total > 0) (compliant.toFloat() / total) * 100f else 0f
         val avgDays = if (total > 0) filteredRecords.sumOf { it.diasSla }.toFloat() / total else 0f
 
-        // Lógica para agrupar por rol
-        val complianceByRoleData = filteredRecords
-            .groupBy { it.rol }
-            .map {
-                RoleCompliance(
-                    role = it.key,
-                    compliantCount = it.value.count { r -> r.cumple },
-                    nonCompliantCount = it.value.count { r -> !r.cumple }
-                )
+        val complianceByRoleData = filteredRecords.groupBy { it.rol }.map { RoleCompliance(it.key, it.value.count { r -> r.cumple }, it.value.count { r -> !r.cumple }) }
+
+        val monthlyComplianceData = filteredRecords
+            .mapNotNull { record ->
+                try {
+                    inputFormat.parse(record.fechaIngreso)?.let { outputFormat.format(it) to record.cumple }
+                } catch (e: Exception) { null }
             }
+            .groupBy { it.first }
+            .map { (month, entries) ->
+                val monthTotal = entries.size
+                val monthCompliant = entries.count { it.second }
+                val monthPercentage = if (monthTotal > 0) (monthCompliant.toFloat() / monthTotal) * 100f else 0f
+                MonthlyCompliance(month, monthPercentage)
+            }.sortedBy { it.yearMonth }
 
         HomeUiState(
             roles = listOf("Todos los roles") + records.map { it.rol }.distinct(),
@@ -95,7 +101,8 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
             nonCompliantCases = nonCompliant,
             compliancePercentage = percentage,
             averageDays = avgDays,
-            complianceByRole = complianceByRoleData // Pasar los datos al estado
+            complianceByRole = complianceByRoleData,
+            monthlyCompliance = monthlyComplianceData
         )
     }.stateIn(
         scope = viewModelScope,
