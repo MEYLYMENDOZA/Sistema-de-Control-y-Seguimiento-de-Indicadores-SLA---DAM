@@ -20,6 +20,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.proyecto1.ui.gestion.CargaDatosScreen
 import com.example.proyecto1.ui.gestion.GestionDatosScreen
 import com.example.proyecto1.ui.gestion.GestionDatosViewModel
+import com.example.proyecto1.ui.prediction.PredictionScreen
+import com.example.proyecto1.ui.prediction.PredictionViewModel
 import com.example.proyecto1.ui.theme.Black
 import com.example.proyecto1.ui.theme.Proyecto1Theme
 import com.example.proyecto1.ui.theme.White
@@ -38,8 +40,8 @@ fun AppNavigation() {
     // Instancias de ViewModel compartidas
     val slaDashboardViewModel: SlaDashboardViewModel = viewModel()
     val slaLimitsViewModel: SlaLimitsViewModel = viewModel()
-    // CORRECCIÓN: Se crea una instancia compartida de GestionDatosViewModel para todas las pantallas relacionadas.
     val gestionDatosViewModel: GestionDatosViewModel = viewModel()
+    val predictionViewModel: PredictionViewModel = viewModel()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -49,7 +51,6 @@ fun AppNavigation() {
     ) {
         NavHost(navController = navController, startDestination = "dashboard") {
             composable("dashboard") {
-                // CORRECCIÓN: La llamada a DashboardScreen ahora solo necesita el ViewModel correcto.
                 DashboardScreen(viewModel = gestionDatosViewModel)
             }
             composable("report_preview") {
@@ -58,12 +59,14 @@ fun AppNavigation() {
             composable("configuration") {
                 ConfigurationScreen(viewModel = slaLimitsViewModel)
             }
-            // CORRECCIÓN: Se añaden las nuevas pantallas al NavHost, usando el ViewModel compartido.
             composable("carga_datos") {
                 CargaDatosScreen(viewModel = gestionDatosViewModel)
             }
             composable("gestion_datos") {
                 GestionDatosScreen(viewModel = gestionDatosViewModel)
+            }
+            composable("prediction") {
+                PredictionScreen(gestionViewModel = gestionDatosViewModel, predictionViewModel = predictionViewModel)
             }
         }
     }
@@ -88,7 +91,7 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
             }
             HorizontalDivider(thickness = 0.5.dp)
             val menuItems = listOf(
-                "Inicio", "Carga de Datos", "Gestión de Datos", "Métricas SLA", "Reportes", "Notificaciones", "Usuarios", "Configuración"
+                "Inicio", "Carga de Datos", "Gestión de Datos", "Análisis Predictivo", "Métricas SLA", "Reportes", "Notificaciones", "Usuarios", "Configuración"
             )
             menuItems.forEach { item ->
                 NavigationDrawerItem(
@@ -96,13 +99,13 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
                     selected = false, // Debería ser dinámico según la ruta actual
                     onClick = {
                         closeDrawer()
-                        // CORRECCIÓN: Se añaden las nuevas rutas de navegación.
                         when (item) {
                             "Inicio" -> navController.navigate("dashboard")
                             "Configuración" -> navController.navigate("configuration")
                             "Reportes" -> navController.navigate("report_preview")
                             "Carga de Datos" -> navController.navigate("carga_datos")
                             "Gestión de Datos" -> navController.navigate("gestion_datos")
+                            "Análisis Predictivo" -> navController.navigate("prediction")
                             else -> {
                                 // TODO: Implementar otras rutas
                             }

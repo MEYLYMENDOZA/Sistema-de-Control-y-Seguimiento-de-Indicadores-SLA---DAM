@@ -58,7 +58,6 @@ android {
 }
 
 dependencies {
-    // CORRECCIÓN: Se usa una versión del BOM que SÍ EXISTE.
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -86,9 +85,16 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.android.material:material:1.12.0")
     implementation("com.itextpdf:itextg:5.5.10")
-    implementation(libs.apache.poi)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    implementation("org.apache.poi:poi-ooxml:5.2.3")
+
+    // Dependencia para análisis de regresión
+    implementation("org.apache.commons:commons-math3:3.6.1")
+
+    // Nueva dependencia para gráficos
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
