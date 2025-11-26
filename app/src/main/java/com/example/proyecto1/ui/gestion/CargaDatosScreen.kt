@@ -13,7 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,49 +22,62 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CargaDatosScreen(viewModel: GestionDatosViewModel) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsState()
+    
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(uiState.snackbarMessage) {
+        uiState.snackbarMessage?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(it)
+                viewModel.onSnackbarShown()
+            }
+        }
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? -> viewModel.onFileSelected(uri) }
     )
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            UploadControlCard(
-                onSelectFileClick = { filePickerLauncher.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") },
-                onCleanDataClick = { viewModel.onCleanDataClicked() }
-            )
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                UploadControlCard(
+                    onSelectFileClick = { filePickerLauncher.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") },
+                    onCleanDataClick = { viewModel.onCleanDataClicked() }
+                )
 
-            AnimatedVisibility(visible = uiState.dataLoaded) {
-                SummaryMetricsGrid(state = uiState)
+                AnimatedVisibility(visible = uiState.dataLoaded) {
+                    SummaryMetricsGrid(state = uiState)
+                }
             }
-        }
 
-        if (uiState.isLoading) {
-            Surface(color = Color.Black.copy(alpha = 0.4f), modifier = Modifier.fillMaxSize()) {
-                Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color.White)
+            if (uiState.isLoading) {
+                Surface(color = Color.Black.copy(alpha = 0.4f), modifier = Modifier.fillMaxSize()) {
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
                 }
             }
         }
     }
 }
-
-
-// =================================================================
-// COMPONENTES DE UI (REUTILIZADOS Y NUEVOS)
-// =================================================================
 
 @Composable
 fun UploadControlCard(onSelectFileClick: () -> Unit, onCleanDataClick: () -> Unit) {
@@ -97,8 +110,8 @@ fun UploadControlCard(onSelectFileClick: () -> Unit, onCleanDataClick: () -> Uni
 }
 
 @Composable
-fun SummaryMetricsGrid(state: GestionDatosState) {
-    val percentage = if (state.totalRecords > 0) (state.compliant.toFloat() / state.totalRecords) * 100 else 0f
+fun SummaryMetricsGrid(state: GestionUiState) {
+    val percentage = if (state.totalRecords > 0) (state.compliant.toFloat() / state.totalRecords.toFloat()) * 100f else 0f
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Resumen de Datos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -146,7 +159,7 @@ fun SummaryMetricsGrid(state: GestionDatosState) {
 @Composable
 fun MetricCard(label: String, value: String, icon: ImageVector, iconColor: Color, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.fillMaxWidth(), // Use the modifier here
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

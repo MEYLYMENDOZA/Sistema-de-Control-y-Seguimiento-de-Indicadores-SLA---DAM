@@ -2,33 +2,43 @@ package com.example.proyecto1.ui.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.repository.UserRepository
-import com.example.proyecto1.data.model.User
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class LoginViewModel(private val userRepository: UserRepository) : ViewModel() {
+// Estado de la UI para el login
+data class LoginUiState(
+    val isLoading: Boolean = false,
+    val loginSuccess: Boolean = false,
+    val error: String? = null
+)
 
-    private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
-    val loginState = _loginState.asStateFlow()
+class LoginViewModel : ViewModel() {
 
-    fun login(username: String, password: String) {
+    private val _uiState = MutableStateFlow(LoginUiState())
+    val uiState: StateFlow<LoginUiState> = _uiState
+
+    fun login(user: String, password: String) {
+        // Validaciones básicas
+        if (user.isBlank() || password.isBlank()) {
+            _uiState.value = LoginUiState(error = "El usuario y la contraseña no pueden estar vacíos.")
+            return
+        }
+
+        _uiState.value = LoginUiState(isLoading = true)
+
+        // Simula una pequeña demora para que el feedback de carga sea visible
         viewModelScope.launch {
-            _loginState.value = LoginState.Loading
-            val user = userRepository.login(username, password)
-            if (user != null) {
-                _loginState.value = LoginState.Success(user)
+            delay(500) // Pequeña demora artificial
+
+            if (user == "admin" && password == "admin123") {
+                // ¡Login exitoso!
+                _uiState.value = LoginUiState(loginSuccess = true)
             } else {
-                _loginState.value = LoginState.Error("Invalid credentials")
+                // Credenciales incorrectas
+                _uiState.value = LoginUiState(error = "Usuario o contraseña incorrectos.")
             }
         }
     }
-}
-
-sealed class LoginState {
-    object Idle : LoginState()
-    object Loading : LoginState()
-    data class Success(val user: User) : LoginState()
-    data class Error(val message: String) : LoginState()
 }

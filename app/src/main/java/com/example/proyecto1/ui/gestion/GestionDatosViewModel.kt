@@ -2,17 +2,17 @@ package com.example.proyecto1.ui.gestion
 
 import android.app.Application
 import android.net.Uri
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -20,11 +20,18 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-sealed class UiEvent {
-    data class ShowSnackbar(val message: String) : UiEvent()
-}
+data class SlaRecord(
+    val id: String,
+    val codigo: String,
+    val rol: String,
+    val fechaSolicitud: String,
+    val fechaIngreso: String,
+    val tipoSla: String,
+    val diasSla: Int,
+    val cumple: Boolean
+)
 
-data class GestionDatosState(
+data class GestionUiState(
     val isLoading: Boolean = false,
     val dataLoaded: Boolean = false,
     val records: List<SlaRecord> = emptyList(),
@@ -32,117 +39,99 @@ data class GestionDatosState(
     val searchQuery: String = "",
     val totalRecords: Int = 0,
     val compliant: Int = 0,
-    val nonCompliant: Int = 0
+    val nonCompliant: Int = 0,
+    val snackbarMessage: String? = null
 )
 
 class GestionDatosViewModel(application: Application) : AndroidViewModel(application) {
 
-    var uiState by mutableStateOf(GestionDatosState())
-        private set
-
-    private val _eventFlow = MutableSharedFlow<UiEvent>()
-    val eventFlow = _eventFlow.asSharedFlow()
+    private val _uiState = MutableStateFlow(GestionUiState())
+    val uiState: StateFlow<GestionUiState> = _uiState.asStateFlow()
 
     fun onFileSelected(uri: Uri?) {
         if (uri == null) return
-        uiState = uiState.copy(isLoading = true, dataLoaded = false)
+        _uiState.update { it.copy(isLoading = true, dataLoaded = false) }
 
         viewModelScope.launch {
             try {
-                val records = withContext(Dispatchers.IO) {
-                    parseExcelFile(uri)
-                }
-
+                val records = withContext(Dispatchers.IO) { parseExcelFile(uri) }
                 if (records.isEmpty()) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Error: No se encontraron filas con datos válidos. Verifique el formato del archivo."))
-                    uiState = uiState.copy(isLoading = false)
+                    _uiState.update { it.copy(isLoading = false, snackbarMessage = "Error: No se encontraron datos válidos.") }
                     return@launch
                 }
-
                 val total = records.size
                 val compliant = records.count { it.cumple }
                 val nonCompliant = total - compliant
-
                 delay(1000)
-
-                uiState = uiState.copy(
-                    isLoading = false,
-                    dataLoaded = true,
-                    records = records,
-                    totalRecords = total,
-                    compliant = compliant,
-                    nonCompliant = nonCompliant
-                )
-                _eventFlow.emit(UiEvent.ShowSnackbar("¡Archivo procesado con ${records.size} registros!"))
-
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        dataLoaded = true,
+                        records = records,
+                        totalRecords = total,
+                        compliant = compliant,
+                        nonCompliant = nonCompliant,
+                        snackbarMessage = "¡Archivo procesado con ${records.size} registros!"
+                    )
+                }
             } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Error crítico al leer el archivo: ${e.message}"))
-                uiState = uiState.copy(isLoading = false, dataLoaded = false)
+                _uiState.update { it.copy(isLoading = false, dataLoaded = false, snackbarMessage = "Error crítico: ${e.message}") }
             }
         }
     }
 
     private fun parseExcelFile(uri: Uri): List<SlaRecord> {
         val records = mutableListOf<SlaRecord>()
-        val contentResolver = getApplication<Application>().contentResolver
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-
-        contentResolver.openInputStream(uri)?.use { inputStream ->
+        getApplication<Application>().contentResolver.openInputStream(uri)?.use { inputStream ->
             val workbook = XSSFWorkbook(inputStream)
             val sheet = workbook.getSheetAt(0)
+            val outputDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
             for (i in 1..sheet.lastRowNum) {
-                val row = sheet.getRow(i) ?: continue
-
                 try {
+                    val row = sheet.getRow(i) ?: continue
                     val rol = row.getCell(0)?.stringCellValue?.trim() ?: ""
                     val tipoSla = row.getCell(3)?.stringCellValue?.trim() ?: ""
-                    var codigo = row.getCell(4)?.stringCellValue?.trim() ?: ""
-
-                    if (rol.isBlank() || tipoSla.isBlank()) continue
-                    if (tipoSla !in listOf("SLA1", "SLA2")) continue
-                    if (codigo.isBlank()) codigo = "N/A-${UUID.randomUUID().toString().substring(0, 4)}"
-
+                    if (rol.isBlank() || tipoSla.isBlank() || tipoSla !in listOf("SLA1", "SLA2")) continue
+                    
                     val fechaSolicitudDate = getCellDateValue(row.getCell(1))
                     val fechaIngresoDate = getCellDateValue(row.getCell(2))
-
                     if (fechaSolicitudDate == null || fechaIngresoDate == null) continue
 
                     val diffMillis = fechaIngresoDate.time - fechaSolicitudDate.time
-                    val diasSla = TimeUnit.DAYS.convert(diffMillis, TimeUnit.MILLISECONDS).toInt()
+                    val diasSla = TimeUnit.DAYS.convert(diffMillis, TimeUnit.MILLISECONDS).toInt() + 1
 
+                    val limiteSla1 = 35
+                    val limiteSla2 = 20
                     val cumple = when (tipoSla) {
-                        "SLA1" -> diasSla < 35
-                        "SLA2" -> diasSla < 20
+                        "SLA1" -> diasSla < limiteSla1
+                        "SLA2" -> diasSla < limiteSla2
                         else -> false
                     }
 
                     records.add(SlaRecord(
                         id = UUID.randomUUID().toString(),
-                        codigo = codigo,
+                        codigo = row.getCell(4)?.stringCellValue?.trim() ?: "N/A-${UUID.randomUUID().toString().substring(0, 4)}",
                         rol = rol,
-                        fechaSolicitud = dateFormat.format(fechaSolicitudDate),
-                        fechaIngreso = dateFormat.format(fechaIngresoDate),
+                        fechaSolicitud = outputDateFormat.format(fechaSolicitudDate),
+                        fechaIngreso = outputDateFormat.format(fechaIngresoDate),
                         tipoSla = tipoSla,
                         diasSla = diasSla,
                         cumple = cumple
                     ))
-                } catch (e: Exception) {
-                    continue
-                }
+                } catch (e: Exception) { continue }
             }
         }
         return records
     }
 
-    private fun getCellDateValue(cell: org.apache.poi.ss.usermodel.Cell?): Date? {
+    private fun getCellDateValue(cell: Cell?): Date? {
         if (cell == null) return null
         return try {
             when (cell.cellType) {
                 CellType.NUMERIC -> if (DateUtil.isCellDateFormatted(cell)) cell.dateCellValue else null
                 CellType.STRING -> {
-                    // Intenta parsear diferentes formatos de fecha comunes
-                    val dateFormats = listOf("dd/MM/yyyy", "d/M/yy", "d-MMM-yy", "yyyy-MM-dd")
+                    val dateFormats = listOf("yyyy-MM-dd", "dd/MM/yyyy", "d/M/yy", "d-MMM-yy")
                     for (format in dateFormats) {
                         try {
                             return SimpleDateFormat(format, Locale.getDefault()).parse(cell.stringCellValue)
@@ -158,61 +147,55 @@ class GestionDatosViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun onCleanDataClicked() {
-        uiState = GestionDatosState()
-        viewModelScope.launch {
-            _eventFlow.emit(UiEvent.ShowSnackbar("Datos limpiados. Puede cargar un nuevo archivo."))
-        }
+        _uiState.value = GestionUiState()
+        _uiState.update { it.copy(snackbarMessage = "Datos limpiados.") }
     }
 
-    fun onDeleteSelectedClicked() {
-        if (uiState.selectedRecordIds.isEmpty()) return
-        val remainingRecords = uiState.records.filterNot { it.id in uiState.selectedRecordIds }
-        val deletedCount = uiState.records.size - remainingRecords.size
-        val total = remainingRecords.size
-        val compliant = remainingRecords.count { it.cumple }
-        val nonCompliant = total - compliant
-        uiState = uiState.copy(
-            records = remainingRecords,
-            selectedRecordIds = emptySet(),
-            totalRecords = total,
-            compliant = compliant,
-            nonCompliant = nonCompliant
-        )
-        viewModelScope.launch {
-            _eventFlow.emit(UiEvent.ShowSnackbar("$deletedCount registro(s) eliminado(s)."))
-        }
+    fun onSnackbarShown() {
+        _uiState.update { it.copy(snackbarMessage = null) }
     }
 
     fun onSearchQueryChanged(query: String) {
-        uiState = uiState.copy(searchQuery = query)
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun onDeleteSelectedClicked() {
+        if (_uiState.value.selectedRecordIds.isEmpty()) return
+        val remainingRecords = _uiState.value.records.filterNot { it.id in _uiState.value.selectedRecordIds }
+        val deletedCount = _uiState.value.records.size - remainingRecords.size
+        _uiState.update {
+            it.copy(
+                records = remainingRecords,
+                selectedRecordIds = emptySet(),
+                totalRecords = remainingRecords.size,
+                compliant = remainingRecords.count { r -> r.cumple },
+                nonCompliant = remainingRecords.count { r -> !r.cumple },
+                snackbarMessage = "$deletedCount registro(s) eliminado(s)."
+            )
+        }
     }
 
     fun onRecordSelectionChanged(recordId: String, isSelected: Boolean) {
-        val newSelection = uiState.selectedRecordIds.toMutableSet()
+        val newSelection = _uiState.value.selectedRecordIds.toMutableSet()
         if (isSelected) newSelection.add(recordId) else newSelection.remove(recordId)
-        uiState = uiState.copy(selectedRecordIds = newSelection)
+        _uiState.update { it.copy(selectedRecordIds = newSelection) }
     }
 
     fun onSelectAllFiltered(filteredIds: List<String>, shouldSelect: Boolean) {
-        val currentSelection = uiState.selectedRecordIds.toMutableSet()
+        val currentSelection = _uiState.value.selectedRecordIds.toMutableSet()
         if (shouldSelect) currentSelection.addAll(filteredIds) else currentSelection.removeAll(filteredIds.toSet())
-        uiState = uiState.copy(selectedRecordIds = currentSelection)
+        _uiState.update { it.copy(selectedRecordIds = currentSelection) }
     }
 
     fun onSaveRecord(updatedRecord: SlaRecord) {
-        val updatedList = uiState.records.map { if (it.id == updatedRecord.id) updatedRecord else it }
-        val total = updatedList.size
-        val compliant = updatedList.count { it.cumple }
-        val nonCompliant = total - compliant
-
-        uiState = uiState.copy(
-            records = updatedList,
-            totalRecords = total,
-            compliant = compliant,
-            nonCompliant = nonCompliant
-        )
-        viewModelScope.launch {
-            _eventFlow.emit(UiEvent.ShowSnackbar("Registro ${updatedRecord.codigo} actualizado."))
+        val updatedList = _uiState.value.records.map { if (it.id == updatedRecord.id) updatedRecord else it }
+        _uiState.update {
+            it.copy(
+                records = updatedList,
+                compliant = updatedList.count { r -> r.cumple },
+                nonCompliant = updatedList.count { r -> !r.cumple },
+                snackbarMessage = "Registro ${updatedRecord.codigo} actualizado."
+            )
         }
     }
 }

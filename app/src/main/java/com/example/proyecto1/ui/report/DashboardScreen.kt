@@ -1,134 +1,70 @@
 package com.example.proyecto1.ui.report
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.* 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+// import androidx.compose.runtime.getValue // No es necesario con esta solución
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import com.example.proyecto1.ui.theme.Black
+import com.example.proyecto1.ui.gestion.GestionDatosViewModel
+import com.example.proyecto1.ui.gestion.SlaRecord
 import com.example.proyecto1.ui.theme.GreenProgress
 import com.example.proyecto1.ui.theme.RedProgress
 import com.example.proyecto1.ui.theme.White
-import kotlinx.coroutines.launch
+import java.text.DecimalFormat
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(navController: NavController, openDrawer: () -> Unit) {
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+fun DashboardScreen(viewModel: GestionDatosViewModel) {
+    // SOLUCIÓN: Se reemplaza el delegado "by" por el acceso explícito a ".value"
+    // para esquivar el error de la caché del compilador.
+    val uiState = viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Reportes") },
-                navigationIcon = {
-                    IconButton(onClick = openDrawer) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Navigation menu")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = White, titleContentColor = Black)
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { /* showConfirmationDialog = true */ },
-                icon = { Icon(Icons.Filled.Download, "Download") },
-                text = { Text(text = "Exportar PDF") },
-                containerColor = Black,
-                contentColor = White
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .background(Color.LightGray.copy(alpha = 0.2f))
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                GenerateReportCard(
-                    navController = navController,
-                    showSnackbar = { message ->
-                        scope.launch {
-                            snackbarHostState.showSnackbar(message)
-                        }
-                    }
-                )
-            }
-            item { ReportPreviewCard() }
-            item { ComplianceByTypeCard() }
-            item { ComplianceByRoleCard() }
-            item { Last10RecordsCard() }
-        }
-    }
-}
-
-
-// ... Rest of the card Composables remain the same ...
-@Composable
-fun GenerateReportCard(navController: NavController, showSnackbar: (String) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Generar Reportes", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { navController.navigate("report_preview") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Black)
-            ) {
-                Text("Descargar PDF")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { showSnackbar("Funcionalidad de descarga de CSV no implementada.") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Descargar CSV")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { showSnackbar("Funcionalidad de impresión no implementada.") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Imp. ahora")
-            }
-        }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.LightGray.copy(alpha = 0.2f))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Se accede a los datos a través de uiState.value
+        item { ReportSummaryCard(uiState.value.totalRecords, uiState.value.compliant, uiState.value.nonCompliant) }
+        item { ComplianceByTypeCard(uiState.value.records) }
+        item { ComplianceByRoleCard(uiState.value.records) }
+        item { Last10RecordsCard(uiState.value.records) }
     }
 }
 
 @Composable
-fun ReportPreviewCard() {
+fun ReportSummaryCard(total: Int, compliant: Int, nonCompliant: Int) {
+    val compliancePercentage = if (total > 0) (compliant.toDouble() / total.toDouble() * 100) else 0.0
+    val percentageFormatter = DecimalFormat("#.##")
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Vista Previa del Reporte", style = MaterialTheme.typography.titleMedium)
-            Text("Resumen de los indicadores SLA", style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Sistema de Control SLA", fontWeight = FontWeight.Bold)
-            Text("Fecha de generación: 14/11/2025", style = MaterialTheme.typography.bodySmall)
-            Text("Generado por: admin (Administrador)", style = MaterialTheme.typography.bodySmall)
+            Text("Resumen de Indicadores SLA", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
-                KpiCard("150", "Total Casos")
-                KpiCard("116", "Cumplen", Color(0xFFE8F5E9))
+                KpiCard(total.toString(), "Total Casos")
+                KpiCard(compliant.toString(), "Cumplen", Color(0xFFE8F5E9))
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {
-                KpiCard("34", "No Cumplen", Color(0xFFFFEBEE))
-                KpiCard("77.3%", "% Cumplimiento", Color(0xFFE3F2FD))
+                KpiCard(nonCompliant.toString(), "No Cumplen", Color(0xFFFFEBEE))
+                KpiCard("${percentageFormatter.format(compliancePercentage)}%", "% Cumplimiento", Color(0xFFE3F2FD))
             }
         }
     }
@@ -145,53 +81,62 @@ fun KpiCard(value: String, label: String, backgroundColor: Color = Color.LightGr
 }
 
 @Composable
-fun ComplianceByTypeCard() {
+fun ComplianceByTypeCard(records: List<SlaRecord>) {
+    val data = records.groupBy { it.tipoSla }
+        .mapValues { (_, records) ->
+            val total = records.size
+            val compliant = records.count { it.cumple }
+            if (total > 0) compliant.toFloat() / total.toFloat() * 100f else 0f
+        }
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Cumplimiento por Tipo de SLA", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(16.dp))
-            val data = listOf(
-                "SLA-TI" to 79.2f,
-                "SLA-TS" to 77.5f
-            )
-            data.forEach { (label, value) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = label, modifier = Modifier.weight(1f))
-                    LinearProgressIndicator(progress = { value / 100 }, modifier = Modifier.weight(1f))
-                    Text(text = "$value%", modifier = Modifier.padding(start = 8.dp))
+            if (data.isEmpty()) {
+                Text("No hay datos para mostrar.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                data.forEach { (label, value) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = label, modifier = Modifier.weight(1f))
+                        LinearProgressIndicator(progress = value / 100f, modifier = Modifier.weight(1f))
+                        Text(text = "${value.toInt()}%", modifier = Modifier.padding(start = 8.dp))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
 
 @Composable
-fun ComplianceByRoleCard() {
+fun ComplianceByRoleCard(records: List<SlaRecord>) {
+    val roles = records.groupBy { it.rol }
+        .mapValues { (_, records) ->
+            val total = records.size
+            val compliant = records.count { it.cumple }
+            if (total > 0) compliant.toFloat() / total.toFloat() * 100f else 0f
+        }
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Cumplimiento por Rol", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(16.dp))
-            val roles = listOf(
-                "Scrum Master" to 79.1f,
-                "Soporte" to 94.1f,
-                "Desarrollador" to 85.0f,
-                "Gerente" to 78.8f,
-                "DevOps" to 96.1f,
-                "Analista" to 73.7f,
-                "QA" to 88.0f
-            )
-            roles.forEach { (role, value) ->
-                val progressColor = if (value > 80) GreenProgress else RedProgress
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-                    Text(text = role, modifier = Modifier.weight(1.5f))
-                    LinearProgressIndicator(
-                        progress = { value / 100 },
-                        modifier = Modifier.weight(1f),
-                        color = progressColor,
-                        trackColor = progressColor.copy(alpha = 0.3f)
-                    )
-                    Text(text = "$value%", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
+            if (roles.isEmpty()) {
+                Text("No hay datos para mostrar.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                roles.forEach { (role, value) ->
+                    val progressColor = if (value > 80) GreenProgress else RedProgress
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Text(text = role, modifier = Modifier.weight(1.5f))
+                        LinearProgressIndicator(
+                            progress = value / 100f,
+                            modifier = Modifier.weight(1f),
+                            color = progressColor,
+                            trackColor = progressColor.copy(alpha = 0.3f)
+                        )
+                        Text(text = "${value.toInt()}%", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
@@ -199,7 +144,9 @@ fun ComplianceByRoleCard() {
 }
 
 @Composable
-fun Last10RecordsCard() {
+fun Last10RecordsCard(records: List<SlaRecord>) {
+    val lastRecords = records.take(10)
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Últimos 10 Registros", style = MaterialTheme.typography.titleMedium)
@@ -207,24 +154,20 @@ fun Last10RecordsCard() {
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Rol", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text("Solicitud", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("F. Solicitud", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text("F. Ingreso", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             }
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            val records = listOf(
-                Triple("Scrum Master", "11/11/2025", "11/11/2025"),
-                Triple("Soporte", "11/11/2025", "11/11/2025"),
-                Triple("Desarrollador", "11/11/2025", "11/11/2025"),
-                Triple("Gerente", "11/11/2025", "11/11/2025"),
-                Triple("DevOps", "11/11/2025", "11/11/2025")
-            )
-
-            records.forEach { (role, requestDate, entryDate) ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(role, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    Text(requestDate, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    Text(entryDate, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            if (lastRecords.isEmpty()) {
+                Text("No hay registros para mostrar.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                lastRecords.forEach { record ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(record.rol, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Text(record.fechaSolicitud, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        Text(record.fechaIngreso, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
