@@ -14,6 +14,7 @@ import java.util.Locale
 
 data class RoleCompliance(val role: String, val compliantCount: Int, val nonCompliantCount: Int)
 data class MonthlyCompliance(val yearMonth: String, val percentage: Float)
+data class SlaTypeCompliance(val slaType: String, val compliantCount: Int, val nonCompliantCount: Int)
 
 data class HomeUiState(
     val roles: List<String> = emptyList(),
@@ -28,7 +29,8 @@ data class HomeUiState(
     val compliantCases: Int = 0,
     val nonCompliantCases: Int = 0,
     val complianceByRole: List<RoleCompliance> = emptyList(),
-    val monthlyCompliance: List<MonthlyCompliance> = emptyList()
+    val monthlyCompliance: List<MonthlyCompliance> = emptyList(),
+    val complianceBySlaType: List<SlaTypeCompliance> = emptyList()
 )
 
 class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() {
@@ -74,13 +76,11 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
         val avgDays = if (total > 0) filteredRecords.sumOf { it.diasSla }.toFloat() / total else 0f
 
         val complianceByRoleData = filteredRecords.groupBy { it.rol }.map { RoleCompliance(it.key, it.value.count { r -> r.cumple }, it.value.count { r -> !r.cumple }) }
+        
+        val complianceBySlaTypeData = filteredRecords.groupBy { it.tipoSla }.map { SlaTypeCompliance(it.key, it.value.count { r -> r.cumple }, it.value.count { r -> !r.cumple }) }
 
         val monthlyComplianceData = filteredRecords
-            .mapNotNull { record ->
-                try {
-                    inputFormat.parse(record.fechaIngreso)?.let { outputFormat.format(it) to record.cumple }
-                } catch (e: Exception) { null }
-            }
+            .mapNotNull { record -> try { inputFormat.parse(record.fechaIngreso)?.let { outputFormat.format(it) to record.cumple } } catch (e: Exception) { null } }
             .groupBy { it.first }
             .map { (month, entries) ->
                 val monthTotal = entries.size
@@ -102,7 +102,8 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
             compliancePercentage = percentage,
             averageDays = avgDays,
             complianceByRole = complianceByRoleData,
-            monthlyCompliance = monthlyComplianceData
+            monthlyCompliance = monthlyComplianceData,
+            complianceBySlaType = complianceBySlaTypeData
         )
     }.stateIn(
         scope = viewModelScope,

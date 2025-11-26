@@ -20,6 +20,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.proyecto1.ui.home.HomeViewModel
 import com.example.proyecto1.ui.home.MonthlyCompliance
 import com.example.proyecto1.ui.home.RoleCompliance
+import com.example.proyecto1.ui.home.SlaTypeCompliance
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.charts.PieChart
@@ -41,51 +42,77 @@ fun DashboardScreen(homeViewModel: HomeViewModel) {
         item { SummaryCards(uiState) }
         item { PieChartCard(uiState.compliantCases, uiState.nonCompliantCases) }
         item { GroupedBarChartCard(uiState.complianceByRole) }
-        item { LineChartCard(uiState.monthlyCompliance) } // Gráfico de tendencia
+        item { LineChartCard(uiState.monthlyCompliance) }
+        item { SlaTypeBarChartCard(uiState.complianceBySlaType) } // Gráfico por tipo de SLA
+    }
+}
+
+@Composable
+private fun SlaTypeBarChartCard(complianceBySlaType: List<SlaTypeCompliance>) {
+    if (complianceBySlaType.isEmpty()) return
+
+    val chartBlue = Color(0xFF3B82F6)
+    val chartRed = Color(0xFFEF4444)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Cumplimiento por Tipo de SLA", style = MaterialTheme.typography.titleMedium)
+            Text("Comparación entre SLA1 (≤35 días) y SLA2 (≤20 días)", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AndroidView(
+                factory = { context ->
+                    BarChart(context).apply {
+                        description.isEnabled = false
+                        xAxis.position = XAxis.XAxisPosition.BOTTOM
+                        xAxis.setDrawGridLines(false)
+                        xAxis.granularity = 1f
+                        axisLeft.axisMinimum = 0f
+                        axisRight.isEnabled = false
+                    }
+                },
+                update = { chart ->
+                    val compliantEntries = complianceBySlaType.mapIndexed { index, data -> BarEntry(index.toFloat(), data.compliantCount.toFloat()) }
+                    val nonCompliantEntries = complianceBySlaType.mapIndexed { index, data -> BarEntry(index.toFloat(), data.nonCompliantCount.toFloat()) }
+
+                    val compliantDataSet = BarDataSet(compliantEntries, "Cumple").apply { color = chartBlue.toArgb() }
+                    val nonCompliantDataSet = BarDataSet(nonCompliantEntries, "No Cumple").apply { color = chartRed.toArgb() }
+
+                    val barData = BarData(compliantDataSet, nonCompliantDataSet)
+                    val groupSpace = 0.4f
+                    val barSpace = 0.05f
+                    val barWidth = 0.25f
+                    
+                    barData.barWidth = barWidth
+                    chart.data = barData
+                    
+                    chart.xAxis.valueFormatter = IndexAxisValueFormatter(complianceBySlaType.map { it.slaType })
+                    chart.xAxis.axisMaximum = complianceBySlaType.size.toFloat()
+                    chart.groupBars(0f, groupSpace, barSpace)
+                    
+                    chart.invalidate()
+                },
+                modifier = Modifier.fillMaxWidth().height(300.dp)
+            )
+        }
     }
 }
 
 @Composable
 private fun LineChartCard(monthlyCompliance: List<MonthlyCompliance>) {
     if (monthlyCompliance.isEmpty()) return
-
     val chartBlue = Color(0xFF3B82F6)
-
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Tendencia de Cumplimiento", style = MaterialTheme.typography.titleMedium)
             Text("Evolución del porcentaje de cumplimiento por mes", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             Spacer(modifier = Modifier.height(16.dp))
-
             AndroidView(
-                factory = { context ->
-                    LineChart(context).apply {
-                        description.isEnabled = false
-                        xAxis.position = XAxis.XAxisPosition.BOTTOM
-                        xAxis.setDrawGridLines(false)
-                        xAxis.granularity = 1f
-                        axisLeft.axisMinimum = 0f
-                        axisLeft.axisMaximum = 100f
-                        axisRight.isEnabled = false
-                    }
-                },
+                factory = { context -> LineChart(context).apply { description.isEnabled = false; xAxis.position = XAxis.XAxisPosition.BOTTOM; xAxis.setDrawGridLines(false); xAxis.granularity = 1f; axisLeft.axisMinimum = 0f; axisLeft.axisMaximum = 100f; axisRight.isEnabled = false } },
                 update = { chart ->
-                    val entries = monthlyCompliance.mapIndexed { index, data ->
-                        Entry(index.toFloat(), data.percentage)
-                    }
-                    val dataSet = LineDataSet(entries, "Cumplimiento %").apply {
-                        color = chartBlue.toArgb()
-                        valueTextColor = chartBlue.toArgb()
-                        setCircleColor(chartBlue.toArgb())
-                        circleRadius = 4f
-                        setDrawCircleHole(false)
-                        mode = LineDataSet.Mode.CUBIC_BEZIER
-                        lineWidth = 2.5f
-                        setDrawValues(false)
-                    }
-                    chart.data = LineData(dataSet)
-                    chart.xAxis.valueFormatter = IndexAxisValueFormatter(monthlyCompliance.map { it.yearMonth })
-                    chart.invalidate()
+                    val entries = monthlyCompliance.mapIndexed { index, data -> Entry(index.toFloat(), data.percentage) }
+                    val dataSet = LineDataSet(entries, "Cumplimiento %").apply { color = chartBlue.toArgb(); valueTextColor = chartBlue.toArgb(); setCircleColor(chartBlue.toArgb()); circleRadius = 4f; setDrawCircleHole(false); mode = LineDataSet.Mode.CUBIC_BEZIER; lineWidth = 2.5f; setDrawValues(false) }
+                    chart.data = LineData(dataSet); chart.xAxis.valueFormatter = IndexAxisValueFormatter(monthlyCompliance.map { it.yearMonth }); chart.invalidate()
                 },
                 modifier = Modifier.fillMaxWidth().height(300.dp)
             )
@@ -97,7 +124,6 @@ private fun LineChartCard(monthlyCompliance: List<MonthlyCompliance>) {
 private fun SummaryCards(uiState: com.example.proyecto1.ui.home.HomeUiState) {
     val compliantPercent = if (uiState.totalCases > 0) (uiState.compliantCases.toFloat() / uiState.totalCases) * 100 else 0f
     val nonCompliantPercent = if (uiState.totalCases > 0) (uiState.nonCompliantCases.toFloat() / uiState.totalCases) * 100 else 0f
-
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SummaryKpiCard("Total de casos registrados", uiState.totalCases.toString(), "${uiState.compliantCases} cumplen / ${uiState.nonCompliantCases} no cumplen", Icons.Filled.Leaderboard, Color(0xFF6B21A8), Color(0xFFE9D5FF))
         SummaryKpiCard("Casos que Cumplen", uiState.compliantCases.toString(), "${String.format("%.1f", compliantPercent)}% del total", Icons.Filled.CheckCircle, Color(0xFF16A34A), Color(0xFFDCFCE7))
@@ -115,11 +141,7 @@ private fun GroupedBarChartCard(complianceByRole: List<RoleCompliance>) {
             Text("Comparación del desempeño entre diferentes roles", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             Spacer(modifier = Modifier.height(16.dp))
             AndroidView(
-                factory = { context ->
-                    BarChart(context).apply {
-                        description.isEnabled = false; xAxis.position = XAxis.XAxisPosition.BOTTOM; xAxis.setDrawGridLines(false); xAxis.granularity = 1f; axisLeft.axisMinimum = 0f; axisRight.isEnabled = false
-                    }
-                },
+                factory = { context -> BarChart(context).apply { description.isEnabled = false; xAxis.position = XAxis.XAxisPosition.BOTTOM; xAxis.setDrawGridLines(false); xAxis.granularity = 1f; axisLeft.axisMinimum = 0f; axisRight.isEnabled = false } },
                 update = { chart ->
                     val compliantEntries = complianceByRole.mapIndexed { index, data -> BarEntry(index.toFloat(), data.compliantCount.toFloat()) }
                     val nonCompliantEntries = complianceByRole.mapIndexed { index, data -> BarEntry(index.toFloat(), data.nonCompliantCount.toFloat()) }
