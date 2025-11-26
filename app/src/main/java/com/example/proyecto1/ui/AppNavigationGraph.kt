@@ -12,13 +12,20 @@ import com.example.proyecto1.ui.gestion.CargaDatosScreen
 import com.example.proyecto1.ui.gestion.GestionDatosScreen
 import com.example.proyecto1.ui.gestion.GestionDatosViewModel
 import com.example.proyecto1.ui.home.HomeViewModel
+import com.example.proyecto1.ui.prediction.PredictionScreen
+import com.example.proyecto1.ui.prediction.PredictionViewModel
 import com.example.proyecto1.ui.report.DashboardScreen
 
+/**
+ * Defines the navigation graph for the application.
+ * This composable contains the NavHost and all screen destinations.
+ * It receives a [NavHostController] from the parent (MainScreen) to integrate with the navigation drawer.
+ */
 @Composable
 fun AppNavigationGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     val gestionDatosViewModel: GestionDatosViewModel = viewModel()
 
-    // Factory para crear HomeViewModel, ya que depende de otro ViewModel.
+    // Factory for HomeViewModel
     val homeViewModelFactory = object : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
@@ -30,22 +37,38 @@ fun AppNavigationGraph(navController: NavHostController, modifier: Modifier = Mo
     }
     val homeViewModel: HomeViewModel = viewModel(factory = homeViewModelFactory)
 
+    // CORRECCIÓN: Factory para PredictionViewModel para que pueda acceder a los datos
+    val predictionViewModelFactory = object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(PredictionViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return PredictionViewModel(gestionDatosViewModel) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
+    }
+    val predictionViewModel: PredictionViewModel = viewModel(factory = predictionViewModelFactory)
+
     NavHost(
         navController = navController,
         startDestination = AppScreens.Inicio.route,
         modifier = modifier
     ) {
         composable(AppScreens.Inicio.route) {
-            // CORRECCIÓN: Se pasa la instancia correcta de HomeViewModel.
-            DashboardScreen(homeViewModel)
+            DashboardScreen(homeViewModel = homeViewModel)
         }
 
         composable(AppScreens.CargaDatos.route) {
-            CargaDatosScreen(gestionDatosViewModel)
+            CargaDatosScreen(viewModel = gestionDatosViewModel)
         }
 
         composable(AppScreens.GestionDatos.route) {
-            GestionDatosScreen(gestionDatosViewModel)
+            GestionDatosScreen(viewModel = gestionDatosViewModel)
+        }
+
+        composable(AppScreens.Prediccion.route) {
+            // Se pasa solo el ViewModel de predicción, ya que ahora contiene la lógica necesaria
+            PredictionScreen(predictionViewModel = predictionViewModel)
         }
     }
 }
