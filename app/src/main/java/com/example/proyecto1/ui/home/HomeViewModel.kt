@@ -3,6 +3,7 @@ package com.example.proyecto1.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto1.ui.gestion.GestionDatosViewModel
+import com.example.proyecto1.ui.gestion.SlaRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -11,6 +12,9 @@ import kotlinx.coroutines.flow.stateIn
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+
+// Nueva clase de datos para el gráfico de barras por rol
+data class RoleCompliance(val role: String, val compliantCount: Int, val nonCompliantCount: Int)
 
 data class HomeUiState(
     val roles: List<String> = emptyList(),
@@ -23,7 +27,8 @@ data class HomeUiState(
     val averageDays: Float = 0f,
     val totalCases: Int = 0,
     val compliantCases: Int = 0,
-    val nonCompliantCases: Int = 0
+    val nonCompliantCases: Int = 0,
+    val complianceByRole: List<RoleCompliance> = emptyList() // Nuevo estado
 )
 
 class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() {
@@ -35,10 +40,7 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
     private val periodOptions = listOf("Todo el periodo", "Últimos 7 días", "Últimos 30 días", "Últimos 90 días", "Últimos 6 meses", "Último año")
 
     val uiState: StateFlow<HomeUiState> = combine(
-        gestionDatosViewModel.uiState,
-        _selectedRole,
-        _selectedSlaType,
-        _selectedPeriod
+        gestionDatosViewModel.uiState, _selectedRole, _selectedSlaType, _selectedPeriod
     ) { gestionState, role, slaType, period ->
         val records = gestionState.records
         val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -47,9 +49,7 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
             .filter { role == "Todos los roles" || it.rol == role }
             .filter { slaType == "Todos los tipos" || it.tipoSla == slaType }
             .filter { record ->
-                if (period == "Todo el periodo") {
-                    true
-                } else {
+                if (period == "Todo el periodo") true else {
                     try {
                         val recordDate = dateFormat.parse(record.fechaIngreso) ?: return@filter false
                         val limitDate = Calendar.getInstance().apply {
@@ -62,9 +62,7 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
                             }
                         }.time
                         recordDate.after(limitDate)
-                    } catch (e: Exception) {
-                        false
-                    }
+                    } catch (e: Exception) { false }
                 }
             }
 
@@ -73,6 +71,17 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
         val nonCompliant = total - compliant
         val percentage = if (total > 0) (compliant.toFloat() / total) * 100f else 0f
         val avgDays = if (total > 0) filteredRecords.sumOf { it.diasSla }.toFloat() / total else 0f
+
+        // Lógica para agrupar por rol
+        val complianceByRoleData = filteredRecords
+            .groupBy { it.rol }
+            .map {
+                RoleCompliance(
+                    role = it.key,
+                    compliantCount = it.value.count { r -> r.cumple },
+                    nonCompliantCount = it.value.count { r -> !r.cumple }
+                )
+            }
 
         HomeUiState(
             roles = listOf("Todos los roles") + records.map { it.rol }.distinct(),
@@ -85,7 +94,8 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
             compliantCases = compliant,
             nonCompliantCases = nonCompliant,
             compliancePercentage = percentage,
-            averageDays = avgDays
+            averageDays = avgDays,
+            complianceByRole = complianceByRoleData // Pasar los datos al estado
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,15 +103,7 @@ class HomeViewModel(gestionDatosViewModel: GestionDatosViewModel) : ViewModel() 
         initialValue = HomeUiState(periods = periodOptions)
     )
 
-    fun onRoleSelected(role: String) {
-        _selectedRole.value = role
-    }
-
-    fun onSlaTypeSelected(slaType: String) {
-        _selectedSlaType.value = slaType
-    }
-
-    fun onPeriodSelected(period: String) {
-        _selectedPeriod.value = period
-    }
+    fun onRoleSelected(role: String) { _selectedRole.value = role }
+    fun onSlaTypeSelected(slaType: String) { _selectedSlaType.value = slaType }
+    fun onPeriodSelected(period: String) { _selectedPeriod.value = period }
 }

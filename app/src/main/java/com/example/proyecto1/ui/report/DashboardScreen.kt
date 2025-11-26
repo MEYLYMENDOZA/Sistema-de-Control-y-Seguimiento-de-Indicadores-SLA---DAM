@@ -18,10 +18,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.proyecto1.ui.home.HomeViewModel
+import com.example.proyecto1.ui.home.RoleCompliance
+import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.PieChart
-import com.github.mikephil.charting.data.PieData
-import com.github.mikephil.charting.data.PieDataSet
-import com.github.mikephil.charting.data.PieEntry
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.*
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.formatter.PercentFormatter
 
 @Composable
@@ -29,36 +31,75 @@ fun DashboardScreen(homeViewModel: HomeViewModel) {
     val uiState by homeViewModel.uiState.collectAsState()
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item {
-            FilterCard(
-                roles = uiState.roles, selectedRole = uiState.selectedRole, onRoleSelected = homeViewModel::onRoleSelected,
-                slaTypes = uiState.slaTypes, selectedSlaType = uiState.selectedSlaType, onSlaTypeSelected = homeViewModel::onSlaTypeSelected,
-                periods = uiState.periods, selectedPeriod = uiState.selectedPeriod, onPeriodSelected = homeViewModel::onPeriodSelected
-            )
-        }
+        item { FilterCard(uiState, homeViewModel) }
         item { KpiRow(uiState.compliancePercentage, uiState.averageDays) }
-        
-        item {
-            val compliantPercent = if (uiState.totalCases > 0) (uiState.compliantCases.toFloat() / uiState.totalCases) * 100 else 0f
-            val nonCompliantPercent = if (uiState.totalCases > 0) (uiState.nonCompliantCases.toFloat() / uiState.totalCases) * 100 else 0f
+        item { SummaryCards(uiState) }
+        item { PieChartCard(uiState.compliantCases, uiState.nonCompliantCases) }
+        item { GroupedBarChartCard(uiState.complianceByRole) }
+    }
+}
 
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SummaryKpiCard("Total de casos registrados", uiState.totalCases.toString(), "${uiState.compliantCases} cumplen / ${uiState.nonCompliantCases} no cumplen", Icons.Filled.Leaderboard, Color(0xFF6B21A8), Color(0xFFE9D5FF))
-                SummaryKpiCard("Casos que Cumplen", uiState.compliantCases.toString(), "${String.format("%.1f", compliantPercent)}% del total", Icons.Filled.CheckCircle, Color(0xFF16A34A), Color(0xFFDCFCE7))
-                SummaryKpiCard("Casos que No Cumplen", uiState.nonCompliantCases.toString(), "${String.format("%.1f", nonCompliantPercent)}% del total", Icons.Filled.Warning, Color(0xFFB91C1C), Color(0xFFFEE2E2))
-            }
-        }
+@Composable
+private fun SummaryCards(uiState: com.example.proyecto1.ui.home.HomeUiState) {
+    val compliantPercent = if (uiState.totalCases > 0) (uiState.compliantCases.toFloat() / uiState.totalCases) * 100 else 0f
+    val nonCompliantPercent = if (uiState.totalCases > 0) (uiState.nonCompliantCases.toFloat() / uiState.totalCases) * 100 else 0f
 
-        // CORRECCIÓN: Se añade el gráfico circular
-        item {
-            PieChartCard(
-                compliant = uiState.compliantCases,
-                nonCompliant = uiState.nonCompliantCases
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SummaryKpiCard("Total de casos registrados", uiState.totalCases.toString(), "${uiState.compliantCases} cumplen / ${uiState.nonCompliantCases} no cumplen", Icons.Filled.Leaderboard, Color(0xFF6B21A8), Color(0xFFE9D5FF))
+        SummaryKpiCard("Casos que Cumplen", uiState.compliantCases.toString(), "${String.format("%.1f", compliantPercent)}% del total", Icons.Filled.CheckCircle, Color(0xFF16A34A), Color(0xFFDCFCE7))
+        SummaryKpiCard("Casos que No Cumplen", uiState.nonCompliantCases.toString(), "${String.format("%.1f", nonCompliantPercent)}% del total", Icons.Filled.Warning, Color(0xFFB91C1C), Color(0xFFFEE2E2))
+    }
+}
+
+@Composable
+private fun GroupedBarChartCard(complianceByRole: List<RoleCompliance>) {
+    if (complianceByRole.isEmpty()) return
+
+    val chartBlue = Color(0xFF3B82F6)
+    val chartRed = Color(0xFFEF4444)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Cumplimiento por Rol", style = MaterialTheme.typography.titleMedium)
+            Text("Comparación del desempeño entre diferentes roles", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AndroidView(
+                factory = { context ->
+                    BarChart(context).apply {
+                        description.isEnabled = false
+                        xAxis.position = XAxis.XAxisPosition.BOTTOM
+                        xAxis.setDrawGridLines(false)
+                        xAxis.granularity = 1f
+                        axisLeft.axisMinimum = 0f
+                        axisRight.isEnabled = false
+                    }
+                },
+                update = { chart ->
+                    val compliantEntries = complianceByRole.mapIndexed { index, data -> BarEntry(index.toFloat(), data.compliantCount.toFloat()) }
+                    val nonCompliantEntries = complianceByRole.mapIndexed { index, data -> BarEntry(index.toFloat(), data.nonCompliantCount.toFloat()) }
+
+                    val compliantDataSet = BarDataSet(compliantEntries, "Cumple").apply { color = chartBlue.toArgb() }
+                    val nonCompliantDataSet = BarDataSet(nonCompliantEntries, "No Cumple").apply { color = chartRed.toArgb() }
+
+                    val barData = BarData(compliantDataSet, nonCompliantDataSet)
+                    val groupSpace = 0.4f
+                    val barSpace = 0.05f
+                    val barWidth = 0.25f
+                    
+                    barData.barWidth = barWidth
+                    chart.data = barData
+                    
+                    chart.xAxis.valueFormatter = IndexAxisValueFormatter(complianceByRole.map { it.role })
+                    chart.xAxis.axisMaximum = complianceByRole.size.toFloat()
+                    chart.groupBars(0f, groupSpace, barSpace)
+                    
+                    chart.invalidate()
+                },
+                modifier = Modifier.fillMaxWidth().height(300.dp)
             )
         }
     }
@@ -68,8 +109,7 @@ fun DashboardScreen(homeViewModel: HomeViewModel) {
 private fun PieChartCard(compliant: Int, nonCompliant: Int) {
     if (compliant == 0 && nonCompliant == 0) return
 
-    val chartBlue = Color(0xFF3B82F6)
-    val chartRed = Color(0xFFEF4444)
+    val chartBlue = Color(0xFF3B82F6); val chartRed = Color(0xFFEF4444)
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -80,26 +120,13 @@ private fun PieChartCard(compliant: Int, nonCompliant: Int) {
             AndroidView(
                 factory = { context ->
                     PieChart(context).apply {
-                        description.isEnabled = false
-                        isDrawHoleEnabled = true
-                        setHoleColor(android.graphics.Color.TRANSPARENT)
-                        setUsePercentValues(true)
-                        legend.isEnabled = false
+                        description.isEnabled = false; isDrawHoleEnabled = true; setHoleColor(android.graphics.Color.TRANSPARENT); setUsePercentValues(true); legend.isEnabled = false
                     }
                 },
                 update = { chart ->
-                    val entries = listOf(
-                        PieEntry(compliant.toFloat(), "Cumplen"),
-                        PieEntry(nonCompliant.toFloat(), "No Cumplen")
-                    )
-                    val dataSet = PieDataSet(entries, "").apply {
-                        colors = listOf(chartBlue.toArgb(), chartRed.toArgb())
-                        valueTextColor = android.graphics.Color.WHITE
-                        valueTextSize = 12f
-                        valueFormatter = PercentFormatter(chart)
-                    }
-                    chart.data = PieData(dataSet)
-                    chart.invalidate()
+                    val entries = listOf(PieEntry(compliant.toFloat(), "Cumplen"), PieEntry(nonCompliant.toFloat(), "No Cumplen"))
+                    val dataSet = PieDataSet(entries, "").apply { colors = listOf(chartBlue.toArgb(), chartRed.toArgb()); valueTextColor = android.graphics.Color.WHITE; valueTextSize = 12f; valueFormatter = PercentFormatter(chart) }
+                    chart.data = PieData(dataSet); chart.invalidate()
                 },
                 modifier = Modifier.fillMaxWidth().height(250.dp)
             )
@@ -109,19 +136,17 @@ private fun PieChartCard(compliant: Int, nonCompliant: Int) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FilterCard(roles: List<String>, selectedRole: String, onRoleSelected: (String) -> Unit, slaTypes: List<String>, selectedSlaType: String, onSlaTypeSelected: (String) -> Unit, periods: List<String>, selectedPeriod: String, onPeriodSelected: (String) -> Unit) {
+private fun FilterCard(uiState: com.example.proyecto1.ui.home.HomeUiState, homeViewModel: HomeViewModel) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.FilterList, contentDescription = "Filtros"); Spacer(modifier = Modifier.width(8.dp)); Text("Filtros", style = MaterialTheme.typography.titleLarge)
-            }
+            Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.FilterList, "Filtros"); Spacer(Modifier.width(8.dp)); Text("Filtros", style = MaterialTheme.typography.titleLarge) }
             Text("Filtra los datos por rol, tipo de SLA y periodo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             Spacer(modifier = Modifier.height(16.dp))
-            FilterDropdown("Rol", roles, selectedRole, onRoleSelected)
+            FilterDropdown("Rol", uiState.roles, uiState.selectedRole, homeViewModel::onRoleSelected)
             Spacer(modifier = Modifier.height(8.dp))
-            FilterDropdown("Tipo SLA", slaTypes, selectedSlaType, onSlaTypeSelected)
+            FilterDropdown("Tipo SLA", uiState.slaTypes, uiState.selectedSlaType, homeViewModel::onSlaTypeSelected)
             Spacer(modifier = Modifier.height(8.dp))
-            FilterDropdown("Periodo", periods, selectedPeriod, onPeriodSelected)
+            FilterDropdown("Periodo", uiState.periods, uiState.selectedPeriod, homeViewModel::onPeriodSelected)
         }
     }
 }
@@ -145,13 +170,10 @@ private fun KpiRow(compliancePercentage: Float, averageDays: Float) {
 }
 
 @Composable
-private fun KpiCard(modifier: Modifier = Modifier, title: String, value: String, subtitle: String, icon: ImageVector, iconBackgroundColor: Color, iconColor: Color) {
+private fun KpiCard(modifier: Modifier, title: String, value: String, subtitle: String, icon: ImageVector, iconBackgroundColor: Color, iconColor: Color) {
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Top) {
-                Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Icon(icon, null, tint = iconColor, modifier = Modifier.background(iconBackgroundColor, CircleShape).padding(4.dp))
-            }
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Top) { Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f)); Icon(icon, null, tint = iconColor, modifier = Modifier.background(iconBackgroundColor, CircleShape).padding(4.dp)) }
             Spacer(modifier = Modifier.height(8.dp))
             Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
@@ -163,11 +185,7 @@ private fun KpiCard(modifier: Modifier = Modifier, title: String, value: String,
 private fun SummaryKpiCard(title: String, value: String, subtitle: String, icon: ImageVector, iconColor: Color, iconBackgroundColor: Color) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                Text(value, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            }
+            Column(modifier = Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.bodyMedium, color = Color.Gray); Text(value, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold); Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray) }
             Icon(icon, title, tint = iconColor, modifier = Modifier.size(48.dp).background(iconBackgroundColor, RoundedCornerShape(8.dp)).padding(8.dp))
         }
     }
