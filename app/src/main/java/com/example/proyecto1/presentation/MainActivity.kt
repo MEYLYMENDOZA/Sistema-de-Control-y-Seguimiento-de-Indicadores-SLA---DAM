@@ -8,10 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-// (importation de AlertsHistoryScreen)
-import com.example.proyecto1.features.notifications.presentation.alert_history.AlertsHistoryScreen
-// (importación de EmailNotificationsScreen)
-// import com.example.proyecto1.features.notifications.presentation.email_notifications.EmailNotificationsScreen
+import com.example.proyecto1.ui.report.AppNavigation
 import com.example.proyecto1.ui.theme.Proyecto1Theme
 
 class MainActivity : ComponentActivity() {
@@ -24,11 +21,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // pantalla de alertas
-                    AlertsHistoryScreen()
-
-                    // pantalla de notificaciones
-                    // EmailNotificationsScreen()
+                    AppNavigation()
                 }
             }
         }

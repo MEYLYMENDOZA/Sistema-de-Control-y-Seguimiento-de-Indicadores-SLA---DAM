@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext // NECESARIO PARA OBTENER EL CONTEXTO
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -36,6 +35,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.example.proyecto1.ui.login.LoginScreen
+import com.example.proyecto1.presentation.prediccion.PrediccionScreen
+import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
 
 // DataStore delegate (Preferences) - disponible a nivel de archivo
 private val Context.dataStore by preferencesDataStore(name = "user_prefs")
@@ -49,6 +50,7 @@ sealed class Screen(val route: String, val label: String) {
     object Reportes : Screen("reportes", "Reportes")
     object Usuarios : Screen("usuarios", "Usuarios")
     object Carga : Screen("carga", "Carga")
+    object Prediccion : Screen("prediccion", "Predicción")
     object Configuracion : Screen("configuracion", "Configuración")
 }
 
@@ -134,13 +136,31 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                 )
             }
         }) {
+            val currentDestination by modulesNavController.currentBackStackEntryAsState()
+            val currentRoute = currentDestination?.destination?.route
+
+            // Determinar el título según la pantalla actual
+            val titulo = when (currentRoute) {
+                Screen.Alertas.route -> "Alertas"
+                Screen.Dashboard.route -> "Dashboard"
+                Screen.Reportes.route -> "Reportes"
+                Screen.Usuarios.route -> "Usuarios"
+                Screen.Carga.route -> "Carga de Datos"
+                Screen.Prediccion.route -> "Predicción SLA"
+                Screen.Configuracion.route -> "Configuración"
+                else -> "SLA Tracker"
+            }
+
             Scaffold(
                 topBar = {
-                    TopAppBar(title = { Text("Mi App - Módulos") }, navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                    TopAppBar(
+                        title = { Text(titulo) },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                            }
                         }
-                    })
+                    )
                 },
                 bottomBar = {
                     NavigationBar {
@@ -168,6 +188,10 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                     composable(Screen.Reportes.route) { ReportesPlaceholder() }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
                     composable(Screen.Carga.route) { CargaPlaceholder() }
+                    composable(Screen.Prediccion.route) {
+                        val prediccionViewModel: PrediccionViewModel = viewModel()
+                        PrediccionScreen(vm = prediccionViewModel)
+                    }
                     composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
                 }
             }
@@ -223,6 +247,13 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
             modifier = Modifier
                 .padding(vertical = 8.dp)
                 .clickable { onNavigateTo(Screen.Carga.route) }
+        )
+
+        Text(
+            text = "Predicción",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Prediccion.route) }
         )
 
         Text(

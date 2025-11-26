@@ -1,15 +1,18 @@
 package com.example.proyecto1.presentation.prediccion
 
+import android.app.Application
+import android.content.Intent
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.core.content.FileProvider
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.domain.repository.PrediccionRepository
-import com.example.proyecto1.data.remote.FirestoreSeeder
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.proyecto1.data.repository.SlaRepository
+import com.example.proyecto1.utils.PdfExporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 
 data class SlaDataPoint(
     val mes: String,
@@ -24,10 +27,13 @@ data class EstadisticasSla(
     val tendencia: String // "POSITIVA", "NEGATIVA", "ESTABLE"
 )
 
-class PrediccionViewModel : ViewModel() {
+class PrediccionViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repo = PrediccionRepository()
-    private val db = FirebaseFirestore.getInstance()
+    // Repositorio que consume la API REST de SQL Server
+    private val repository = SlaRepository()
+
+    // PDF Exporter
+    private val pdfExporter = PdfExporter(application)
 
     private val _prediccion = MutableStateFlow<Double?>(null)
     val prediccion: StateFlow<Double?> get() = _prediccion
@@ -53,90 +59,279 @@ class PrediccionViewModel : ViewModel() {
     private val _mostrarAdvertencia = MutableStateFlow(false)
     val mostrarAdvertencia: StateFlow<Boolean> get() = _mostrarAdvertencia
 
+    private val _ultimaActualizacion = MutableStateFlow<String?>(null)
+    val ultimaActualizacion: StateFlow<String?> get() = _ultimaActualizacion
+
+    private val _usandoDatosDemo = MutableStateFlow(false)
+    val usandoDatosDemo: StateFlow<Boolean> get() = _usandoDatosDemo
+
+    // Comparación predicción vs realidad
+    private val _valorReal = MutableStateFlow<Double?>(null)
+    val valorReal: StateFlow<Double?> get() = _valorReal
+
+    // Filtros dinámicos desde la base de datos
+    private val _añosDisponibles = MutableStateFlow<List<Int>>(emptyList())
+    val añosDisponibles: StateFlow<List<Int>> get() = _añosDisponibles
+
+    private val _mesesDisponibles = MutableStateFlow<List<Int>>(emptyList())
+    val mesesDisponibles: StateFlow<List<Int>> get() = _mesesDisponibles
+
     private val UMBRAL_MINIMO = 85.0 // SLA mínimo aceptable
 
+    // Estado de filtros actuales (se conserva para reintentos/refrescos)
+    private var filtroMesInicio: Int? = null // 1..12
+    private var filtroMesFin: Int? = null    // 1..12
+    private var filtroAnio: Int? = null
+    private var filtroUltimosMeses: Int = 12
+
+    init {
+        // Cargar años disponibles al iniciar
+        cargarAñosDisponibles()
+    }
+
+    /**
+     * Carga los años disponibles desde la base de datos
+     */
+    fun cargarAñosDisponibles() {
+        viewModelScope.launch {
+            try {
+                val años = repository.obtenerAñosDisponibles()
+                _añosDisponibles.value = años
+                Log.d("PrediccionViewModel", "✅ Años disponibles cargados: $años")
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al cargar años disponibles", e)
+            }
+        }
+    }
+
+    /**
+     * Carga los meses disponibles para un año específico
+     */
+    fun cargarMesesDisponibles(anio: Int) {
+        viewModelScope.launch {
+            try {
+                val meses = repository.obtenerMesesDisponibles(anio)
+                _mesesDisponibles.value = meses
+                Log.d("PrediccionViewModel", "✅ Meses disponibles para $anio: $meses")
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al cargar meses disponibles", e)
+            }
+        }
+    }
+
+    private fun obtenerFechaActual(): String {
+        val sdf = SimpleDateFormat("dd 'de' MMMM, HH:mm", Locale.forLanguageTag("es-ES"))
+        return sdf.format(Date())
+    }
+
+    /**
+     * API antiguo sin parámetros: usa defaults (12 últimos meses)
+     */
     fun cargarYPredecir() {
+        cargarYPredecir(mesInicio = filtroMesInicio, mesFin = filtroMesFin, anio = filtroAnio, meses = filtroUltimosMeses)
+    }
+
+    /**
+     * Carga los datos desde la API REST con filtros y calcula la predicción
+     * @param mesInicio Mes de inicio del rango (1-12)
+     * @param mesFin Mes de fin del rango (1-12, debe ser >= mesInicio)
+     * @param anio Año
+     * @param meses Últimos N meses (si no se especifica rango)
+     */
+    fun cargarYPredecir(mesInicio: Int?, mesFin: Int?, anio: Int?, meses: Int) {
+        // Validar que mesFin >= mesInicio
+        if (mesInicio != null && mesFin != null && mesFin < mesInicio) {
+            _error.value = "El mes de fin debe ser mayor o igual al mes de inicio"
+            Log.w("PrediccionViewModel", "❌ Rango inválido: $mesInicio > $mesFin")
+            return
+        }
+
+        filtroMesInicio = mesInicio
+        filtroMesFin = mesFin
+        filtroAnio = anio
+        filtroUltimosMeses = meses
+
         viewModelScope.launch {
             _cargando.value = true
             _error.value = null
 
             try {
-                Log.d("PrediccionViewModel", "Iniciando carga de datos y predicción...")
-                FirestoreSeeder.seedIfEmpty(db)
-                Log.d("PrediccionViewModel", "Seeder ejecutado correctamente")
-            } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "Error en seeder (ignorado)", e)
-            }
+                Log.d("PrediccionViewModel", "Iniciando carga desde API REST...")
+                Log.d("PrediccionViewModel", "Filtros: mesInicio=$mesInicio, mesFin=$mesFin, anio=$anio")
 
-            try {
-                // Cargar datos históricos
-                cargarDatosHistoricos()
+                // Obtener datos históricos desde la API (con filtros)
+                val datosHistoricos = repository.obtenerDatosHistoricos(meses = meses, anio = anio, mes = mesFin)
+                _datosHistoricos.value = datosHistoricos
 
-                // Calcular predicción
-                val (p, m, b) = repo.calcularPrediccion()
-                _prediccion.value = p
-                _slope.value = m
-                _intercept.value = b
+                Log.d("PrediccionViewModel", "Datos históricos obtenidos: ${datosHistoricos.size} meses")
+
+                // Calcular estadísticas
+                if (datosHistoricos.isNotEmpty()) {
+                    calcularEstadisticas(datosHistoricos)
+                }
+
+                // Calcular predicción usando regresión lineal
+                val resultado = repository.obtenerYPredecirSla(meses = meses, anio = anio, mes = mesFin)
+                val datosSla = resultado.first      // Triple<Double, Double, Double>? - puede ser null
+                val valorReal = resultado.second    // Double? (null si no existe el mes siguiente)
+                val mensajeError = resultado.third  // String? (mensaje de error si falló)
+
+                if (datosSla == null) {
+                    // No hay datos disponibles
+                    _error.value = mensajeError ?: "No hay datos disponibles para el período seleccionado"
+                    _prediccion.value = null
+                    _slope.value = null
+                    _intercept.value = null
+                    _valorReal.value = null
+                    _usandoDatosDemo.value = false
+                    Log.w("PrediccionViewModel", "❌ Sin datos: $mensajeError")
+                    return@launch
+                }
+
+                val prediccion = datosSla.first
+                val pendiente = datosSla.second
+                val intercepto = datosSla.third
+
+                _prediccion.value = prediccion
+                _slope.value = pendiente
+                _intercept.value = intercepto
+                _valorReal.value = valorReal
+                _usandoDatosDemo.value = false
                 _error.value = null
 
                 // Verificar advertencia
-                _mostrarAdvertencia.value = p < UMBRAL_MINIMO
+                _mostrarAdvertencia.value = prediccion < UMBRAL_MINIMO
 
-                Log.d("PrediccionViewModel", "Predicción calculada: $p, slope: $m, intercept: $b")
+                // Actualizar fecha
+                _ultimaActualizacion.value = obtenerFechaActual()
+
+                Log.d("PrediccionViewModel", "✅ Predicción calculada exitosamente")
+                Log.d("PrediccionViewModel", "Predicción: $prediccion%, Pendiente: $pendiente, Intercepto: $intercepto")
+                if (valorReal != null) {
+                    val diferencia = valorReal - prediccion
+                    Log.d("PrediccionViewModel", "📊 Comparación - Real: $valorReal%, Diferencia: ${if (diferencia >= 0) "+" else ""}$diferencia%")
+                }
+
             } catch (e: Exception) {
-                _error.value = e.message
-                Log.e("PrediccionViewModel", "Error al calcular predicción: ${e.message}", e)
+                _error.value = "Error al obtener datos: ${e.message}"
+                Log.e("PrediccionViewModel", "❌ Error al calcular predicción", e)
             } finally {
                 _cargando.value = false
             }
         }
     }
 
-    private suspend fun cargarDatosHistoricos() {
+    /**
+     * Calcula estadísticas basadas en los datos históricos
+     */
+    private fun calcularEstadisticas(datos: List<SlaDataPoint>) {
         try {
-            val snapshot = db.collection("sla_historico")
-                .get()
-                .await()
+            val valores = datos.map { it.valor }
+            val mejor = datos.maxByOrNull { it.valor }!!
+            val peor = datos.minByOrNull { it.valor }!!
+            val promedio = valores.average()
 
-            val datos = snapshot.documents.mapNotNull { doc ->
-                val mes = doc.getString("mes") ?: return@mapNotNull null
-                val porcentaje = doc.getDouble("porcentajeSla") ?: return@mapNotNull null
-                val orden = doc.getLong("orden")?.toInt() ?: 0
-                SlaDataPoint(mes, porcentaje, orden)
-            }.sortedBy { it.orden }
-
-            _datosHistoricos.value = datos
-
-            // Calcular estadísticas
-            if (datos.isNotEmpty()) {
-                val valores = datos.map { it.valor }
-                val mejor = datos.maxByOrNull { it.valor }!!
-                val peor = datos.minByOrNull { it.valor }!!
-                val promedio = valores.average()
-
-                // Determinar tendencia
-                val primerasMitad = valores.take(valores.size / 2).average()
-                val segundaMitad = valores.takeLast(valores.size / 2).average()
-                val tendencia = when {
-                    segundaMitad > primerasMitad + 1 -> "POSITIVA"
-                    segundaMitad < primerasMitad - 1 -> "NEGATIVA"
-                    else -> "ESTABLE"
-                }
-
-                _estadisticas.value = EstadisticasSla(
-                    mejorMes = Pair(mejor.mes, mejor.valor),
-                    peorMes = Pair(peor.mes, peor.valor),
-                    promedio = promedio,
-                    tendencia = tendencia
-                )
+            // Determinar tendencia
+            val primerasMitad = valores.take(valores.size / 2).average()
+            val segundaMitad = valores.takeLast(valores.size / 2).average()
+            val tendencia = when {
+                segundaMitad > primerasMitad + 1 -> "POSITIVA"
+                segundaMitad < primerasMitad - 1 -> "NEGATIVA"
+                else -> "ESTABLE"
             }
+
+            _estadisticas.value = EstadisticasSla(
+                mejorMes = Pair(mejor.mes, mejor.valor),
+                peorMes = Pair(peor.mes, peor.valor),
+                promedio = promedio,
+                tendencia = tendencia
+            )
+
+            Log.d("PrediccionViewModel", "Estadísticas calculadas - Mejor: ${mejor.valor}%, Peor: ${peor.valor}%, Promedio: $promedio%, Tendencia: $tendencia")
         } catch (e: Exception) {
-            Log.e("PrediccionViewModel", "Error cargando datos históricos", e)
+            Log.e("PrediccionViewModel", "Error calculando estadísticas", e)
         }
     }
 
     fun exportarResultado() {
-        // TODO: Implementar exportación a PDF/Excel
-        Log.d("PrediccionViewModel", "Exportar resultado solicitado")
+        viewModelScope.launch {
+            try {
+                // Validar que haya datos para exportar
+                if (_prediccion.value == null || _slope.value == null || _intercept.value == null) {
+                    Log.w("PrediccionViewModel", "No hay datos para exportar")
+                    return@launch
+                }
+
+                // Preparar datos históricos para el PDF
+                val datosParaPdf = _datosHistoricos.value.map { punto ->
+                    Triple(punto.mes, punto.valor, punto.orden)
+                }
+
+                // Preparar estadísticas
+                val stats = _estadisticas.value?.let { est ->
+                    PdfExporter.EstadisticasReporte(
+                        mejorMes = est.mejorMes.first,
+                        mejorValor = est.mejorMes.second,
+                        peorMes = est.peorMes.first,
+                        peorValor = est.peorMes.second,
+                        promedio = est.promedio,
+                        tendencia = est.tendencia
+                    )
+                } ?: PdfExporter.EstadisticasReporte(
+                    mejorMes = "N/A",
+                    mejorValor = 0.0,
+                    peorMes = "N/A",
+                    peorValor = 0.0,
+                    promedio = 0.0,
+                    tendencia = "N/A"
+                )
+
+                // Generar PDF
+                Log.d("PrediccionViewModel", "Generando PDF...")
+                val pdfFile = pdfExporter.exportarPrediccionSLA(
+                    prediccion = _prediccion.value!!,
+                    valorReal = _valorReal.value,
+                    slope = _slope.value!!,
+                    intercept = _intercept.value!!,
+                    datosHistoricos = datosParaPdf,
+                    estadisticas = stats
+                )
+
+                if (pdfFile != null && pdfFile.exists()) {
+                    Log.d("PrediccionViewModel", "✅ PDF generado exitosamente: ${pdfFile.absolutePath}")
+
+                    // Abrir PDF automáticamente
+                    val context = getApplication<Application>()
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        pdfFile
+                    )
+
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/pdf")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        // Si no hay visor de PDF, compartir el archivo
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Compartir PDF").apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        })
+                    }
+                } else {
+                    Log.e("PrediccionViewModel", "❌ Error al generar PDF")
+                }
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al exportar resultado", e)
+            }
+        }
     }
 }

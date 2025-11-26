@@ -30,6 +30,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // URL configurada para dispositivo físico con IP local del PC
+            buildConfigField("String", "API_BASE_URL", "\"http://172.19.5.121:5120/\"")
+        }
+        debug {
+            // IP local del PC WiFi: 192.168.100.4 (nueva red)
+            // IMPORTANTE: PC y celular deben estar en la MISMA red WiFi
+            buildConfigField("String", "API_BASE_URL", "\"http://172.19.5.121:5120/\"")
         }
     }
 
@@ -44,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true  // Habilitar BuildConfig para usar API_BASE_URL
     }
 
     composeOptions {
@@ -98,6 +106,7 @@ dependencies {
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.3.0"))
