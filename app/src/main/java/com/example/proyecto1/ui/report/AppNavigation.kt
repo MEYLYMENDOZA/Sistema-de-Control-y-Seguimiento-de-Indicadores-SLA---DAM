@@ -12,6 +12,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,6 +21,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.proyecto1.ui.theme.Black
 import com.example.proyecto1.ui.theme.Proyecto1Theme
 import com.example.proyecto1.ui.theme.White
+import com.example.proyecto1.presentation.prediccion.PrediccionScreen
+import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,6 +49,10 @@ fun AppNavigation() {
             composable("configuration") {
                 ConfigurationScreen(openDrawer)
             }
+            composable("prediccion") {
+                val prediccionViewModel: PrediccionViewModel = viewModel()
+                PrediccionScreen(vm = prediccionViewModel)
+            }
         }
     }
 }
@@ -68,7 +76,7 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
             }
             HorizontalDivider(thickness = 0.5.dp)
             val menuItems = listOf(
-                "Inicio", "Carga de Datos", "Gestión de Datos", "Métricas SLA", "Reportes", "Notificaciones", "Usuarios", "Configuración"
+                "Inicio", "Carga de Datos", "Gestión de Datos", "Métricas SLA", "Reportes", "Predicción", "Notificaciones", "Usuarios", "Configuración"
             )
             menuItems.forEach { item ->
                 NavigationDrawerItem(
@@ -76,10 +84,14 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
                     selected = item == "Reportes",
                     onClick = {
                         closeDrawer()
-                        if (item == "Configuración") {
-                            navController.navigate("configuration")
-                        } else {
-                            //TODO: navController.navigate(item.lowercase())
+                        when (item) {
+                            "Configuración" -> navController.navigate("configuration")
+                            "Predicción" -> navController.navigate("prediccion")
+                            "Reportes" -> navController.navigate("report_preview")
+                            "Inicio" -> navController.navigate("dashboard")
+                            else -> {
+                                //TODO: navController.navigate(item.lowercase())
+                            }
                         }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
