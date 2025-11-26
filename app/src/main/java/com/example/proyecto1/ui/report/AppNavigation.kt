@@ -12,6 +12,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -20,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.proyecto1.ui.gestion.CargaDatosScreen
 import com.example.proyecto1.ui.gestion.GestionDatosScreen
 import com.example.proyecto1.ui.gestion.GestionDatosViewModel
+import com.example.proyecto1.ui.home.HomeViewModel
 import com.example.proyecto1.ui.prediction.PredictionScreen
 import com.example.proyecto1.ui.prediction.PredictionViewModel
 import com.example.proyecto1.ui.theme.Black
@@ -43,6 +46,18 @@ fun AppNavigation() {
     val gestionDatosViewModel: GestionDatosViewModel = viewModel()
     val predictionViewModel: PredictionViewModel = viewModel()
 
+    // Factory para crear HomeViewModel, ya que depende de otro ViewModel.
+    val homeViewModelFactory = object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return HomeViewModel(gestionDatosViewModel) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
+    }
+    val homeViewModel: HomeViewModel = viewModel(factory = homeViewModelFactory)
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -51,10 +66,11 @@ fun AppNavigation() {
     ) {
         NavHost(navController = navController, startDestination = "dashboard") {
             composable("dashboard") {
-                DashboardScreen(viewModel = gestionDatosViewModel)
+                // CORRECCIÓN: Se pasa la instancia correcta de HomeViewModel con el nombre de parámetro correcto.
+                DashboardScreen(homeViewModel = homeViewModel)
             }
-            composable("report_preview") {
-                ReportScreen(navController = navController, viewModel = slaDashboardViewModel)
+            composable("reports") { // Ruta para la nueva pantalla de Reportes
+                ReportsScreen(viewModel = gestionDatosViewModel)
             }
             composable("configuration") {
                 ConfigurationScreen(viewModel = slaLimitsViewModel)
@@ -91,7 +107,7 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
             }
             HorizontalDivider(thickness = 0.5.dp)
             val menuItems = listOf(
-                "Inicio", "Carga de Datos", "Gestión de Datos", "Análisis Predictivo", "Métricas SLA", "Reportes", "Notificaciones", "Usuarios", "Configuración"
+                "Inicio", "Carga de Datos", "Gestión de Datos", "Análisis Predictivo", "Reportes", "Configuración"
             )
             menuItems.forEach { item ->
                 NavigationDrawerItem(
@@ -102,13 +118,10 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
                         when (item) {
                             "Inicio" -> navController.navigate("dashboard")
                             "Configuración" -> navController.navigate("configuration")
-                            "Reportes" -> navController.navigate("report_preview")
+                            "Reportes" -> navController.navigate("reports")
                             "Carga de Datos" -> navController.navigate("carga_datos")
                             "Gestión de Datos" -> navController.navigate("gestion_datos")
                             "Análisis Predictivo" -> navController.navigate("prediction")
-                            else -> {
-                                // TODO: Implementar otras rutas
-                            }
                         }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
