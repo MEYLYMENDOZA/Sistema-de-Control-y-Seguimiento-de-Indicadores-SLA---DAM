@@ -15,7 +15,6 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
 
     // Base URL configurable por buildType (debug/release)
-
     // TEMPORAL: Hardcodeado hasta que se haga rebuild del proyecto
     private val BASE_URL: String = try {
         BuildConfig.API_BASE_URL
@@ -23,9 +22,6 @@ object RetrofitClient {
         // Fallback si BuildConfig no está generado
         "http://192.168.100.4:5120/"
     }
-
-    private val BASE_URL: String = BuildConfig.API_BASE_URL
-
     
     init {
         android.util.Log.d("RetrofitClient", "🌐 API Base URL configurada: $BASE_URL")
