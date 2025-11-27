@@ -29,7 +29,7 @@ data class EstadisticasSla(
 
 class PrediccionViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Repositorio que consume la API REST de SQL Server
+    // Repositorio UNIFICADO que consume la API REST de SQL Server
     private val repository = SlaRepository()
 
     // PDF Exporter

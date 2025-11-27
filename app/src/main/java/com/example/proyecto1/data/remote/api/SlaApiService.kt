@@ -5,39 +5,31 @@ import com.example.proyecto1.data.remote.dto.TendenciaDatosDto
 import com.example.proyecto1.data.remote.dto.AreaFiltroDto
 import com.example.proyecto1.data.remote.dto.TipoSlaDto
 import com.example.proyecto1.data.remote.dto.PeriodoDto
+
+import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
+import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
+
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PUT
 import retrofit2.http.Query
 
 /**
  * Interfaz de API REST para consumir el backend de SQL Server
- *
- * IMPORTANTE: Este endpoint debe estar implementado en tu API de Visual Studio 2022
  */
 interface SlaApiService {
 
-    /**
-     * Obtiene las solicitudes crudas desde la API
-     * La app Android calculará las estadísticas y predicción
-     *
-     * Endpoint en tu API:
-     * GET /api/sla/solicitudes
-     *
-     * Retorna una lista de solicitudes con:
-     * - idSolicitud
-     * - fechaSolicitud
-     * - numDiasSla (días que tardó la solicitud)
-     * - diasUmbral (días máximos permitidos del SLA)
-     * - idArea
-     * - codigoSla
-     */
+    // --- Endpoints para Reportes y Predicción ---
+
     @GET("api/sla/solicitudes")
     suspend fun obtenerSolicitudes(
-        @Query("meses") meses: Int? = 12,
+        @Query("meses") meses: Int? = null,
         @Query("anio") anio: Int? = null,
         @Query("mes") mes: Int? = null,
         @Query("idArea") idArea: Int? = null
-    ): Response<List<SolicitudSlaDto>>
+    ): Response<List<SolicitudReporteDto>>
 
 
     /**
@@ -69,6 +61,11 @@ interface SlaApiService {
      * GET /api/reporte/meses-disponibles?anio=2024
      */
     @GET("api/reporte/meses-disponibles")
+
+    @GET("api/sla/años-disponibles")
+    suspend fun obtenerAñosDisponibles(): Response<List<Int>>
+
+    @GET("api/sla/meses-disponibles")
     suspend fun obtenerMesesDisponibles(
         @Query("anio") anio: Int
     ): Response<List<Int>>
@@ -93,4 +90,13 @@ interface SlaApiService {
      */
     @GET("api/reporte/periodos-sugeridos")
     suspend fun obtenerPeriodosSugeridos(): Response<List<PeriodoDto>>
+
+    // --- Endpoints para Configuración ---
+
+    @GET("api/ConfigSla")
+    suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>>
+
+    @PUT("api/ConfigSla")
+    suspend fun updateConfigSla(@Body configs: List<ConfigSlaUpdateDto>): Response<Unit>
+ 
 }

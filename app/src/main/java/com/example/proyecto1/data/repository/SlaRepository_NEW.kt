@@ -204,3 +204,6 @@ class SlaRepository {
         return (1..12).toList()
     }
 }
+
+// Este archivo ha sido unificado en SlaRepository.kt y ya no se utiliza.
+
