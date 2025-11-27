@@ -31,6 +31,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.compose.material3.*
 import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
+import com.example.proyecto1.ui.gestion.GestionDatosViewModel
+import com.example.proyecto1.ui.gestion.GestionMainScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -145,7 +147,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                 Screen.Dashboard.route -> "Dashboard"
                 Screen.Reportes.route -> "Reportes"
                 Screen.Usuarios.route -> "Usuarios"
-                Screen.Carga.route -> "Carga de Datos"
+                Screen.Carga.route -> "Mi App - Módulos"
                 Screen.Prediccion.route -> "Predicción SLA"
                 Screen.Configuracion.route -> "Configuración"
                 else -> "SLA Tracker"
@@ -187,7 +189,10 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                     composable(Screen.Dashboard.route) { DashboardPlaceholder() }
                     composable(Screen.Reportes.route) { ReportesPlaceholder() }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
-                    composable(Screen.Carga.route) { CargaPlaceholder() }
+                    composable(Screen.Carga.route) { 
+                        val gestionDatosViewModel: GestionDatosViewModel = viewModel()
+                        GestionMainScreen(viewModel = gestionDatosViewModel) 
+                    }
                     composable(Screen.Prediccion.route) {
                         val prediccionViewModel: PrediccionViewModel = viewModel()
                         PrediccionScreen(vm = prediccionViewModel)
