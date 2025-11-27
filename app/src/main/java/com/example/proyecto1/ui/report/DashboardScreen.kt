@@ -1,18 +1,21 @@
 package com.example.proyecto1.ui.report
 
+import android.app.Application
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,63 +31,76 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    navController: NavController, // Mantener para navegación futura
+    navController: NavController, 
     openDrawer: () -> Unit,
-    // Inyectar el ViewModel con su Factory
-    reportViewModel: ReportViewModel = viewModel(factory = ReportViewModelFactory(SlaRepository()))
+    reportViewModel: ReportViewModel = viewModel(
+        factory = ReportViewModelFactory(LocalContext.current.applicationContext as Application, SlaRepository())
+    )
 ) {
     val uiState by reportViewModel.uiState.collectAsState()
+    val exportState by reportViewModel.exportState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Efecto para manejar el resultado de la exportación
+    LaunchedEffect(exportState) {
+        when (val state = exportState) {
+            is ExportState.Success -> {
+                snackbarHostState.showSnackbar("PDF generado exitosamente")
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(state.fileUri, "application/pdf")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("No se encontró una app para abrir PDFs.")
+                }
+                reportViewModel.resetExportState()
+            }
+            is ExportState.Error -> {
+                snackbarHostState.showSnackbar(state.message)
+                reportViewModel.resetExportState()
+            }
+            is ExportState.Exporting -> {
+                snackbarHostState.showSnackbar("Generando PDF...")
+            }
+            else -> {}
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Reportes") },
-                navigationIcon = {
-                    IconButton(onClick = openDrawer) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Navigation menu")
-                    }
-                },
+                navigationIcon = { IconButton(onClick = openDrawer) { Icon(Icons.Filled.Menu, "Menú") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = White, titleContentColor = Black)
             )
         },
-        floatingActionButton = {
-            // Opcional: El FAB puede reaccionar al estado de la UI
-            if (uiState is ReportUiState.Success) {
-                ExtendedFloatingActionButton(
-                    onClick = { /* Lógica para exportar PDF */ },
-                    icon = { Icon(Icons.Filled.Download, "Download") },
-                    text = { Text(text = "Exportar PDF") },
-                    containerColor = Black,
-                    contentColor = White
-                )
-            }
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        // Reaccionar al estado de la UI
         when (val state = uiState) {
             is ReportUiState.Loading -> {
-                // Muestra un indicador de carga centrado
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             is ReportUiState.Success -> {
-                // Muestra el contenido del reporte con los datos recibidos
-                ReportContent(navController, innerPadding, state.reportData, snackbarHostState)
+                ReportContent(
+                    paddingValues = innerPadding,
+                    reportData = state.reportData,
+                    onExportClick = { reportViewModel.exportarReportePdf() }
+                )
             }
             is ReportUiState.Error -> {
-                // Muestra un mensaje de error con un ícono
                 Column(
                     modifier = Modifier.fillMaxSize().padding(16.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Filled.Warning, contentDescription = "Error", tint = Color.Red, modifier = Modifier.size(64.dp))
+                    Icon(Icons.Filled.Warning, "Error", tint = Color.Red, modifier = Modifier.size(64.dp))
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = state.message, color = Color.Red, textAlign = TextAlign.Center)
+                    Text(state.message, color = Color.Red, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = { reportViewModel.fetchReportData() }) {
                         Text("Reintentar")
@@ -97,12 +113,10 @@ fun DashboardScreen(
 
 @Composable
 fun ReportContent(
-    navController: NavController, 
     paddingValues: PaddingValues, 
     reportData: ReporteGeneralDto,
-    snackbarHostState: SnackbarHostState
+    onExportClick: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
     LazyColumn(
         modifier = Modifier
             .padding(paddingValues)
@@ -112,11 +126,8 @@ fun ReportContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Pasar los datos reales a cada tarjeta
         item {
-            GenerateReportCard(navController = navController, showSnackbar = { message ->
-                scope.launch { snackbarHostState.showSnackbar(message) }
-            })
+            GenerateReportCard(onExportClick = onExportClick)
         }
         item { ReportPreviewCard(reportData.resumen) }
         item { ComplianceByTypeCard(reportData.cumplimientoPorTipo) }
@@ -126,31 +137,18 @@ fun ReportContent(
 }
 
 @Composable
-fun GenerateReportCard(navController: NavController, showSnackbar: (String) -> Unit) {
+fun GenerateReportCard(onExportClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Generar Reportes", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { /* navController.navigate("report_preview") */ }, // TODO: Implementar navegación a vista previa
+                onClick = onExportClick,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Black)
             ) {
+                Icon(Icons.Filled.Download, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Descargar PDF")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { showSnackbar("Funcionalidad de descarga de CSV no implementada.") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Descargar CSV")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { showSnackbar("Funcionalidad de impresión no implementada.") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Imp. ahora")
             }
         }
     }
@@ -161,11 +159,6 @@ fun ReportPreviewCard(resumen: ResumenEjecutivoDto) {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Vista Previa del Reporte", style = MaterialTheme.typography.titleMedium)
-            Text("Resumen de los indicadores SLA", style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Sistema de Control SLA", fontWeight = FontWeight.Bold)
-            Text("Fecha de generación: ${java.time.LocalDate.now()}", style = MaterialTheme.typography.bodySmall)
-            Text("Generado por: admin (Administrador)", style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()) {

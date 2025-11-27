@@ -1,13 +1,23 @@
 package com.example.proyecto1.ui.report
 
+import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import androidx.core.content.FileProvider
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import com.example.proyecto1.data.repository.SlaRepository
+import com.example.proyecto1.utils.PdfExporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 // --- Modelos de datos para el estado de la UI de Reportes ---
 
@@ -15,7 +25,7 @@ data class ReporteGeneralDto(
     val resumen: ResumenEjecutivoDto,
     val cumplimientoPorTipo: List<CumplimientoPorTipoDto>,
     val cumplimientoPorRol: List<CumplimientoPorRolDto>,
-    val ultimosRegistros: List<UltimoRegistroDto>
+    val ultimosRegistros: List<UltimoRegistroDto> // Usará el DTO actualizado
 )
 
 data class ResumenEjecutivoDto(
@@ -40,58 +50,92 @@ data class CumplimientoPorRolDto(
     val porcentaje: Double
 )
 
+// DTO para la tabla "Últimos Registros", ahora con más campos
 data class UltimoRegistroDto(
     val rol: String,
     val fechaSolicitud: String,
-    val fechaIngreso: String
+    val fechaIngreso: String,
+    val tipo: String,
+    val dias: Int?,
+    val estado: String
 )
 
-/**
- * Define los posibles estados de la UI para la pantalla de reportes.
- */
+// --- Estados de la UI ---
+
 sealed class ReportUiState {
     object Loading : ReportUiState()
+    // CORRECCIÓN: El estado Success ahora guarda tanto el reporte procesado como los datos crudos
     data class Success(val reportData: ReporteGeneralDto) : ReportUiState()
     data class Error(val message: String) : ReportUiState()
 }
 
-/**
- * ViewModel para la pantalla de reportes. Se encarga de obtener y gestionar los datos.
- */
-class ReportViewModel(private val repository: SlaRepository) : ViewModel() {
+sealed class ExportState {
+    object Idle : ExportState()
+    object Exporting : ExportState()
+    data class Success(val fileUri: Uri) : ExportState()
+    data class Error(val message: String) : ExportState()
+}
 
-    // StateFlow para exponer el estado de la UI de forma reactiva
+
+class ReportViewModel(application: Application, private val repository: SlaRepository) : AndroidViewModel(application) {
+
     private val _uiState = MutableStateFlow<ReportUiState>(ReportUiState.Loading)
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
 
+    private val _exportState = MutableStateFlow<ExportState>(ExportState.Idle)
+    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
+
+    private val pdfExporter = PdfExporter(application)
+
     init {
-        // Cargar los datos tan pronto como el ViewModel es creado
         fetchReportData()
     }
 
-    /**
-     * Llama al repositorio para obtener los datos del reporte y actualiza el estado de la UI.
-     */
     fun fetchReportData() {
         viewModelScope.launch {
             _uiState.value = ReportUiState.Loading
             repository.obtenerReporteGeneral().onSuccess {
-                _uiState.value = ReportUiState.Success(it)
+                // CORRECCIÓN: 'it' es un Pair, pasamos el primer elemento (el reporte procesado) al estado Success.
+                _uiState.value = ReportUiState.Success(it.first)
             }.onFailure {
                 _uiState.value = ReportUiState.Error(it.message ?: "Error desconocido")
             }
         }
     }
+
+    fun exportarReportePdf() {
+        val currentState = _uiState.value
+        if (currentState is ReportUiState.Success) {
+            viewModelScope.launch {
+                _exportState.value = ExportState.Exporting
+                try {
+                    // Llama al nuevo método para exportar el reporte completo
+                    val file = pdfExporter.exportarReporteDeIndicadores(currentState.reportData)
+                    if (file != null) {
+                        val context = getApplication<Application>().applicationContext
+                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        _exportState.value = ExportState.Success(uri)
+                    } else {
+                        _exportState.value = ExportState.Error("No se pudo crear el archivo PDF.")
+                    }
+                } catch (e: Exception) {
+                    _exportState.value = ExportState.Error("Error al exportar: ${e.message}")
+                }
+            }
+        }
+    }
+
+    fun resetExportState() {
+        _exportState.value = ExportState.Idle
+    }
 }
 
-/**
- * Factory para crear una instancia de ReportViewModel con su dependencia (SlaRepository).
- */
-class ReportViewModelFactory(private val repository: SlaRepository) : ViewModelProvider.Factory {
+
+class ReportViewModelFactory(private val application: Application, private val repository: SlaRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ReportViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ReportViewModel(repository) as T
+            return ReportViewModel(application, repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

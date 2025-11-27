@@ -3,6 +3,8 @@ package com.example.proyecto1.data.repository
 import android.util.Log
 import com.example.proyecto1.data.remote.api.RetrofitClient
 import com.example.proyecto1.data.remote.api.SlaApiService
+import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import com.example.proyecto1.domain.math.LinearRegression
 import com.example.proyecto1.presentation.prediccion.SlaDataPoint
@@ -28,7 +30,8 @@ class SlaRepository {
 
     // --- Métodos para la pantalla de Reportes ---
 
-    suspend fun obtenerReporteGeneral(): Result<ReporteGeneralDto> {
+    // MODIFICADO: Ahora devuelve también la lista de datos crudos
+    suspend fun obtenerReporteGeneral(): Result<Pair<ReporteGeneralDto, List<SolicitudReporteDto>>> {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "[Reportes] 🔍 Llamando a la API: obtenerSolicitudes()")
@@ -39,7 +42,8 @@ class SlaRepository {
                     if (body != null) {
                         Log.d(TAG, "[Reportes] ✅ API call successful. ${body.size} solicitudes recibidas.")
                         val processedReport = procesarSolicitudesParaReporte(body)
-                        Result.success(processedReport)
+                        // Devolver tanto los datos procesados como los crudos
+                        Result.success(Pair(processedReport, body))
                     } else {
                         Result.failure(Exception("El cuerpo de la respuesta es nulo."))
                     }
@@ -78,7 +82,12 @@ class SlaRepository {
         val ultimosRegistros = solicitudes.sortedByDescending { it.fechaSolicitud }.take(10).map { sol ->
             val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (e: Exception) { "Fecha Inv." } } ?: "N/A"
             val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (e: Exception) { "Fecha Inv." } } ?: "N/A"
-            UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng)
+            val estado = if (sol.numDiasSla != null && sol.configSla?.diasUmbral != null) {
+                if (sol.numDiasSla <= sol.configSla.diasUmbral) "Cumple" else "No Cumple"
+            } else {
+                "N/A"
+            }
+            UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng, sol.configSla?.codigoSla ?: "N/A", sol.numDiasSla, estado)
         }
 
         return ReporteGeneralDto(resumen, cumplimientoPorTipo, cumplimientoPorRol, ultimosRegistros)
@@ -155,4 +164,36 @@ class SlaRepository {
     }
 
     private data class EstadisticaMes(val mes: String, val total: Int, val cumplidas: Int, val incumplidas: Int, val porcentajeCumplimiento: Double)
+
+    // --- Métodos para la pantalla de Configuración ---
+
+    suspend fun getConfigSla(): Result<List<ConfigSlaResponseDto>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getConfigSla()
+                if (response.isSuccessful && response.body() != null) {
+                    Result.success(response.body()!!)
+                } else {
+                    Result.failure(Exception("Error ${response.code()}: ${response.errorBody()?.string()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(Exception("No se pudo conectar al servidor: ${e.message}"))
+            }
+        }
+    }
+
+    suspend fun updateConfigSla(configs: List<ConfigSlaUpdateDto>): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.updateConfigSla(configs)
+                if (response.isSuccessful) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Error ${response.code()}: ${response.errorBody()?.string()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(Exception("No se pudo conectar al servidor: ${e.message}"))
+            }
+        }
+    }
 }

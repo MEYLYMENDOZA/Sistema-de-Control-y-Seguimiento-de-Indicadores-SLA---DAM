@@ -1,8 +1,12 @@
 package com.example.proyecto1.data.remote.api
 
+import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PUT
 import retrofit2.http.Query
 
 /**
@@ -10,10 +14,8 @@ import retrofit2.http.Query
  */
 interface SlaApiService {
 
-    /**
-     * Obtiene las solicitudes con detalles. Usado por las pantallas de Reportes y Predicción.
-     * GET /api/sla/solicitudes
-     */
+    // --- Endpoints para Reportes y Predicción ---
+
     @GET("api/sla/solicitudes")
     suspend fun obtenerSolicitudes(
         @Query("meses") meses: Int? = null,
@@ -22,19 +24,19 @@ interface SlaApiService {
         @Query("idArea") idArea: Int? = null
     ): Response<List<SolicitudReporteDto>>
 
-    /**
-     * Obtiene los años disponibles en la base de datos
-     * GET /api/sla/años-disponibles
-     */
     @GET("api/sla/años-disponibles")
     suspend fun obtenerAñosDisponibles(): Response<List<Int>>
 
-    /**
-     * Obtiene los meses disponibles para un año específico
-     * GET /api/sla/meses-disponibles?anio=2024
-     */
     @GET("api/sla/meses-disponibles")
     suspend fun obtenerMesesDisponibles(
         @Query("anio") anio: Int
     ): Response<List<Int>>
+
+    // --- Endpoints para Configuración ---
+
+    @GET("api/ConfigSla")
+    suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>>
+
+    @PUT("api/ConfigSla")
+    suspend fun updateConfigSla(@Body configs: List<ConfigSlaUpdateDto>): Response<Unit>
 }
