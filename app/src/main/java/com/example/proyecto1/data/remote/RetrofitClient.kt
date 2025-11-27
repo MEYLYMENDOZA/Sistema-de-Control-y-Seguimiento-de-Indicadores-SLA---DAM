@@ -16,7 +16,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object RetrofitClient {
 
     // Cambia esto por la URL real de tu API .NET
-    private const val BASE_URL = "http://TU_IP_O_DOMINIO:PUERTO/"
+    private const val BASE_URL = "http://192.168.18.246/"
 
     val api: ApiService by lazy {
         Retrofit.Builder()
