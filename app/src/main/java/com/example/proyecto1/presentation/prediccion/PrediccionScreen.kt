@@ -45,7 +45,7 @@ fun PrediccionScreen(
     val usandoDatosDemo by vm.usandoDatosDemo.collectAsState()
 
     // Filtros dinámicos desde la base de datos
-    val añosDisponibles by vm.añosDisponibles.collectAsState()
+    val añosDisponibles by vm.aniosDisponibles.collectAsState()
     val mesesDisponibles by vm.mesesDisponibles.collectAsState()
 
     // Estado local para filtros - usa el primer año disponible o vacío
@@ -94,7 +94,7 @@ fun PrediccionScreen(
 
     LaunchedEffect(Unit) {
         // Solo cargar años disponibles, no datos todavía
-        vm.cargarAñosDisponibles()
+        vm.cargarAniosDisponibles()
     }
 
     Scaffold {

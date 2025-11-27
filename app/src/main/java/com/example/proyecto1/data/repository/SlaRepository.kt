@@ -17,11 +17,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 import java.util.*
 
 /**
- * Repositorio UNIFICADO para obtener datos de SLA para las pantallas de Reportes y Predicción.
+ * Repositorio UNIFICADO para obtener datos de SLA para las pantallas de Reportes, Predicción y Configuración.
  */
 class SlaRepository {
 
@@ -80,8 +79,8 @@ class SlaRepository {
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
         val displayFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         val ultimosRegistros = solicitudes.sortedByDescending { it.fechaSolicitud }.take(10).map { sol ->
-            val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (e: Exception) { "Fecha Inv." } } ?: "N/A"
-            val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (e: Exception) { "Fecha Inv." } } ?: "N/A"
+            val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
+            val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val estado = if (sol.numDiasSla != null && sol.configSla?.diasUmbral != null) {
                 if (sol.numDiasSla <= sol.configSla.diasUmbral) "Cumple" else "No Cumple"
             } else {
@@ -95,75 +94,162 @@ class SlaRepository {
 
     // --- Métodos para la pantalla de Predicción ---
 
+    /**
+     * Obtiene solicitudes desde la API y calcula predicción con regresión lineal
+     * Retorna Triple(predicción, realidad si existe, mensaje de error)
+     */
     suspend fun obtenerYPredecirSla(meses: Int = 12, anio: Int? = null, mes: Int? = null): Triple<Triple<Double, Double, Double>?, Double?, String?> {
-         try {
-            val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = null, idArea = null)
-            if (!response.isSuccessful || response.body().isNullOrEmpty()) {
-                 return Triple(null, null, "No hay datos para el período.")
-            }
-            val solicitudes = response.body()!!
-            val todasLasEstadisticas = calcularEstadisticasPorMes(solicitudes)
-            if (todasLasEstadisticas.size < 2) {
-                 return Triple(null, null, "Datos insuficientes (se necesitan al menos 2 meses).")
-            }
+        try {
+            Log.d(TAG, "🔄 [Predicción] Intentando conectar con la API...")
+            Log.d(TAG, "📡 Endpoint: /api/sla/solicitudes?meses=$meses&anio=$anio&mes=$mes")
 
-            val x = todasLasEstadisticas.mapIndexed { index, _ -> (index + 1).toDouble() }.toDoubleArray()
-            val y = todasLasEstadisticas.map { it.porcentajeCumplimiento }.toDoubleArray()
-            val model = LinearRegression(x, y)
-            val prediccion = model.predict((x.maxOrNull() ?: 0.0) + 1.0)
+            // Primer intento
+            val resultado = intentarPredecir(meses, anio, mes)
+            if (resultado != null) return Triple(resultado.first, resultado.second, null)
 
-            return Triple(Triple(prediccion, model.slope, model.intercept), null, null)
+            // Reintento rápido
+            Log.w(TAG, "⚠️ Reintentando conexión con la API...")
+            val resultado2 = intentarPredecir(meses, anio, mes)
+            if (resultado2 != null) return Triple(resultado2.first, resultado2.second, null)
+
+            Log.w(TAG, "⚠️ No se pudo obtener datos después de reintento")
+            return Triple(null, null, "No hay datos disponibles para el período seleccionado.")
         } catch (e: Exception) {
+            Log.e(TAG, "❌ Error: ${e.message}", e)
             return Triple(null, null, "Error de conexión: ${e.message}")
         }
     }
 
-    private fun calcularEstadisticasPorMes(solicitudes: List<SolicitudReporteDto>): List<EstadisticaMes> {
+    private suspend fun intentarPredecir(meses: Int, anio: Int?, mes: Int?): Pair<Triple<Double, Double, Double>, Double?>? {
+        val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = null, idArea = null)
+        Log.d(TAG, "📡 Respuesta HTTP: ${response.code()} ${response.message()}")
+
+        if (!response.isSuccessful) return null
+        val solicitudes = response.body()
+        Log.d(TAG, "📦 Solicitudes recibidas: ${solicitudes?.size ?: 0}")
+        if (solicitudes.isNullOrEmpty()) return null
+
+        val todasLasEstadisticas = calcularEstadisticasPorMesSlaDto(solicitudes)
+        Log.d(TAG, "📊 Meses procesados: ${todasLasEstadisticas.size}")
+
+        // Si se especificó un mes, filtrar hasta ese mes para la predicción
+        val estadisticasParaPrediccion = if (mes != null && anio != null) {
+            val mesFiltro = String.format(Locale.US, "%04d-%02d", anio, mes)
+            todasLasEstadisticas.filter { it.mes <= mesFiltro }.sortedBy { it.mes }
+        } else {
+            todasLasEstadisticas.sortedBy { it.mes }
+        }
+
+        if (estadisticasParaPrediccion.size < 2) {
+            Log.w(TAG, "⚠️ Insuficientes datos: se necesitan al menos 2 meses")
+            return null
+        }
+
+        val x = estadisticasParaPrediccion.mapIndexed { index, _ -> (index + 1).toDouble() }.toDoubleArray()
+        val y = estadisticasParaPrediccion.map { it.porcentajeCumplimiento }.toDoubleArray()
+
+        Log.d(TAG, "🔢 Calculando regresión lineal...")
+        val model = LinearRegression(x, y)
+        val prediccion = model.predict((x.maxOrNull() ?: 0.0) + 1.0)
+        Log.d(TAG, "✅ Predicción: $prediccion%")
+
+        // Buscar el mes siguiente para comparar
+        var realidadMesSiguiente: Double? = null
+        if (mes != null && anio != null) {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.YEAR, anio)
+            cal.set(Calendar.MONTH, mes - 1)
+            cal.add(Calendar.MONTH, 1)
+
+            val mesSiguiente = String.format(
+                Locale.US,
+                "%04d-%02d",
+                cal.get(Calendar.YEAR),
+                cal.get(Calendar.MONTH) + 1
+            )
+
+            val estadisticaMesSiguiente = todasLasEstadisticas.find { it.mes == mesSiguiente }
+            if (estadisticaMesSiguiente != null) {
+                realidadMesSiguiente = estadisticaMesSiguiente.porcentajeCumplimiento
+                Log.d(TAG, "📈 Comparación - Predicho: $prediccion% vs Real: $realidadMesSiguiente%")
+            }
+        }
+
+        return Pair(Triple(prediccion, model.slope, model.intercept), realidadMesSiguiente)
+    }
+
+    /**
+     * Calcula estadísticas por mes para SolicitudReporteDto (usado en predicción)
+     */
+    private fun calcularEstadisticasPorMesSlaDto(solicitudes: List<SolicitudReporteDto>): List<EstadisticaMes> {
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
-        return solicitudes.groupBy { 
+
+        val porMes = solicitudes.groupBy {
             try {
                 it.fechaSolicitud?.let { fechaStr ->
                     val fecha = LocalDateTime.parse(fechaStr, formatter)
                     String.format(Locale.US, "%04d-%02d", fecha.year, fecha.monthValue)
                 } ?: "UNKNOWN"
-            } catch (e: DateTimeParseException) { "UNKNOWN" }
-        }.filter { it.key != "UNKNOWN" }.map { (mes, sols) ->
-            val cumplidas = sols.count { it.numDiasSla != null && it.configSla?.diasUmbral != null && it.numDiasSla <= it.configSla.diasUmbral }
+            } catch (_: Exception) {
+                "UNKNOWN"
+            }
+        }.filter { it.key != "UNKNOWN" }
+
+        return porMes.map { (mes, sols) ->
+            val cumplidas = sols.count {
+                it.numDiasSla != null && it.configSla?.diasUmbral != null &&
+                it.numDiasSla <= it.configSla.diasUmbral
+            }
             val total = sols.size
-            EstadisticaMes(mes, total, cumplidas, total - cumplidas, if (total > 0) (cumplidas.toDouble() / total) * 100.0 else 0.0)
+            val porcentaje = if (total > 0) (cumplidas.toDouble() / total) * 100.0 else 0.0
+            EstadisticaMes(mes, total, cumplidas, total - cumplidas, porcentaje)
         }.sortedBy { it.mes }
     }
 
     suspend fun obtenerDatosHistoricos(meses: Int = 12, anio: Int? = null, mes: Int? = null): List<SlaDataPoint> {
-        try {
+        return try {
             val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = mes, idArea = null)
-            if (!response.isSuccessful || response.body().isNullOrEmpty()) return emptyList()
-            val estadisticas = calcularEstadisticasPorMes(response.body()!!)
-            return estadisticas.mapIndexed { index, est ->
-                SlaDataPoint(est.mes, est.porcentajeCumplimiento, index + 1)
+            if (!response.isSuccessful || response.body().isNullOrEmpty()) {
+                emptyList()
+            } else {
+                val estadisticas = calcularEstadisticasPorMesSlaDto(response.body()!!)
+                estadisticas.mapIndexed { index, est ->
+                    SlaDataPoint(est.mes, est.porcentajeCumplimiento, index + 1)
+                }
             }
         } catch (e: Exception) {
-            return emptyList()
+            Log.e(TAG, "❌ Error al obtener datos históricos", e)
+            emptyList()
         }
     }
 
-    suspend fun obtenerAñosDisponibles(): List<Int> {
+    suspend fun obtenerAniosDisponibles(): List<Int> {
         return try {
-            apiService.obtenerAñosDisponibles().body() ?: emptyList()
+            val response = apiService.obtenerAniosDisponibles()
+            response.body() ?: emptyList()
         } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al obtener años disponibles", e)
             emptyList()
         }
     }
 
     suspend fun obtenerMesesDisponibles(anio: Int): List<Int> {
         return try {
-            apiService.obtenerMesesDisponibles(anio).body() ?: emptyList()
+            val response = apiService.obtenerMesesDisponibles(anio)
+            response.body() ?: emptyList()
         } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al obtener meses disponibles", e)
             emptyList()
         }
     }
 
-    private data class EstadisticaMes(val mes: String, val total: Int, val cumplidas: Int, val incumplidas: Int, val porcentajeCumplimiento: Double)
+    private data class EstadisticaMes(
+        val mes: String,
+        val total: Int,
+        val cumplidas: Int,
+        val incumplidas: Int,
+        val porcentajeCumplimiento: Double
+    )
 
     // --- Métodos para la pantalla de Configuración ---
 

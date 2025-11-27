@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.runtime.*
@@ -32,16 +32,12 @@ import androidx.compose.material3.*
 import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
 import com.example.proyecto1.presentation.prediccion.PrediccionScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
 import com.example.proyecto1.ui.login.LoginScreen
 import com.example.proyecto1.ui.report.ConfigurationScreen
 import com.example.proyecto1.ui.report.DashboardScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import com.example.proyecto1.ui.login.LoginScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
 import com.example.proyecto1.presentation.tendencia.TendenciaScreen
 import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
 
@@ -210,7 +206,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
                     composable(Screen.Carga.route) { CargaPlaceholder() }
                     composable(Screen.Prediccion.route) {
-                        val prediccionViewModel: PrediccionViewModel = viewModel()
+                        val prediccionViewModel: com.example.proyecto1.presentation.prediccion.PrediccionViewModel = viewModel()
                         PrediccionScreen(vm = prediccionViewModel)
                     }
 
@@ -218,7 +214,6 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                         val tendenciaViewModel: TendenciaViewModel = viewModel()
                         TendenciaScreen(vm = tendenciaViewModel)
                     }
-                    composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
 
                     composable(Screen.Configuracion.route) {
                         ConfigurationScreen(openDrawer = { scope.launch { drawerState.open() } })
@@ -311,7 +306,7 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.ExitToApp, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = "Cerrar sesión")
         }
@@ -329,10 +324,6 @@ fun DashboardPlaceholder() {
     PlaceholderScreen(title = "Dashboard")
 }
 
-@Composable
-fun ReportesPlaceholder() {
-    PlaceholderScreen(title = "Reportes")
-}
 
 @Composable
 fun UsuariosPlaceholder() {
