@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Report
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -170,24 +169,6 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                                 }
                             }
                         )
-                    }
-                },
-                bottomBar = {
-                    // Las pantallas de Reportes y Configuración no tienen BottomBar
-                    if (currentRoute != Screen.Reportes.route && currentRoute != Screen.Configuracion.route) {
-                        NavigationBar {
-                            val items = listOf(Screen.Alertas, Screen.Dashboard, Screen.Reportes)
-                            val currentBottomNavDestination by modulesNavController.currentBackStackEntryAsState()
-                            val currentBottomNavRoute = currentBottomNavDestination?.destination?.route
-                            items.forEach { screen ->
-                                NavigationBarItem(
-                                    selected = currentBottomNavRoute == screen.route,
-                                    onClick = { modulesNavController.navigate(screen.route) { launchSingleTop = true } },
-                                    icon = { Icon(Icons.Filled.Report, contentDescription = null) },
-                                    label = { Text(screen.label) }
-                                )
-                            }
-                        }
                     }
                 }
             ) { innerPadding ->
