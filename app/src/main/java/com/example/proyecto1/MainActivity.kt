@@ -33,17 +33,14 @@ import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
 import com.example.proyecto1.presentation.prediccion.PrediccionScreen
 import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
+import com.example.proyecto1.presentation.tendencia.TendenciaScreen
+import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
 import com.example.proyecto1.ui.login.LoginScreen
 import com.example.proyecto1.ui.report.ConfigurationScreen
 import com.example.proyecto1.ui.report.DashboardScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import com.example.proyecto1.ui.login.LoginScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
-import com.example.proyecto1.presentation.tendencia.TendenciaScreen
-import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
 
 
 // DataStore delegate (Preferences) - disponible a nivel de archivo

@@ -3,8 +3,7 @@ package com.example.proyecto1.presentation.settings
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.remote.NetworkConfig
-import com.example.proyecto1.data.remote.RetrofitClient
+import com.example.proyecto1.data.remote.api.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +39,7 @@ class NetworkSettingsViewModel(application: Application) : AndroidViewModel(appl
             _uiState.value = NetworkUiState.Searching
 
             try {
+                // Usar la versión suspend de refresh
                 RetrofitClient.refresh(getApplication())
                 val newIp = RetrofitClient.getCurrentBaseUrl()
                 _currentIp.value = newIp

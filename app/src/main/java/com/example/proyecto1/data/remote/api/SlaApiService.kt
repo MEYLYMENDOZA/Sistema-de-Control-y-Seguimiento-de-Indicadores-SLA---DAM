@@ -1,6 +1,5 @@
 package com.example.proyecto1.data.remote.api
 
-import com.example.proyecto1.data.remote.dto.SolicitudSlaDto
 import com.example.proyecto1.data.remote.dto.TendenciaDatosDto
 import com.example.proyecto1.data.remote.dto.AreaFiltroDto
 import com.example.proyecto1.data.remote.dto.TipoSlaDto
@@ -61,11 +60,6 @@ interface SlaApiService {
      * GET /api/reporte/meses-disponibles?anio=2024
      */
     @GET("api/reporte/meses-disponibles")
-
-    @GET("api/sla/años-disponibles")
-    suspend fun obtenerAñosDisponibles(): Response<List<Int>>
-
-    @GET("api/sla/meses-disponibles")
     suspend fun obtenerMesesDisponibles(
         @Query("anio") anio: Int
     ): Response<List<Int>>

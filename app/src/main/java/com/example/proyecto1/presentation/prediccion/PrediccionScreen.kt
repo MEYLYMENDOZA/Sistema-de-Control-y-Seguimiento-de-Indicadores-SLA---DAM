@@ -44,16 +44,16 @@ fun PrediccionScreen(
     val ultimaActualizacion by vm.ultimaActualizacion.collectAsState()
     val usandoDatosDemo by vm.usandoDatosDemo.collectAsState()
 
-    // Filtros dinámicos desde la base de datos
-    val añosDisponibles by vm.añosDisponibles.collectAsState()
+    // Filtros dinamicos desde la base de datos
+    val aniosDisponibles by vm.aniosDisponibles.collectAsState()
     val mesesDisponibles by vm.mesesDisponibles.collectAsState()
 
-    // Estado local para filtros - usa el primer año disponible o vacío
+    // Estado local para filtros - usa el primer anio disponible o vacio
     var mesInicioSeleccionado by remember { mutableStateOf("Enero") }
     var mesFinSeleccionado by remember { mutableStateOf("Diciembre") }
     var anioSeleccionado by remember { mutableStateOf("") }
 
-    // Función helper para convertir nombre de mes a índice
+    // Funcion helper para convertir nombre de mes a indice
     fun mesToIndex(nombre: String): Int? {
         val meses = listOf(
             "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -73,10 +73,10 @@ fun PrediccionScreen(
         return null
     }
 
-    // Cuando se carguen los años disponibles, seleccionar el más reciente
-    LaunchedEffect(añosDisponibles) {
-        if (añosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
-            anioSeleccionado = añosDisponibles.first().toString()
+    // Cuando se carguen los anios disponibles, seleccionar el mas reciente
+    LaunchedEffect(aniosDisponibles) {
+        if (aniosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
+            anioSeleccionado = aniosDisponibles.first().toString()
         }
     }
 
@@ -94,7 +94,7 @@ fun PrediccionScreen(
 
     LaunchedEffect(Unit) {
         // Solo cargar años disponibles, no datos todavía
-        vm.cargarAñosDisponibles()
+        vm.cargarAniosDisponibles()
     }
 
     Scaffold {
@@ -132,7 +132,7 @@ fun PrediccionScreen(
                 onMesFinSeleccionado = { mesFinSeleccionado = it },
                 anioSeleccionado = anioSeleccionado,
                 onAnioSeleccionado = { anioSeleccionado = it },
-                añosDisponibles = añosDisponibles,
+                aniosDisponibles = aniosDisponibles,
                 mesesDisponibles = mesesDisponibles,
                 errorValidacion = validarRango()
             )
@@ -223,7 +223,7 @@ private fun BarraFiltros(
     onMesFinSeleccionado: (String) -> Unit,
     anioSeleccionado: String,
     onAnioSeleccionado: (String) -> Unit,
-    añosDisponibles: List<Int>,
+    aniosDisponibles: List<Int>,
     mesesDisponibles: List<Int>,
     errorValidacion: String?
 ) {
@@ -307,7 +307,7 @@ private fun BarraFiltros(
                 onAnioSeleccionado = onAnioSeleccionado,
                 onActualizar = onActualizar,
                 habilitado = habilitado,
-                añosDisponibles = añosDisponibles,
+                aniosDisponibles = aniosDisponibles,
                 mesesDisponibles = mesesDisponibles,
                 errorValidacion = errorValidacion
             )
@@ -325,7 +325,7 @@ private fun SelectorMesAnio(
     onAnioSeleccionado: (String) -> Unit,
     onActualizar: () -> Unit,
     habilitado: Boolean,
-    añosDisponibles: List<Int>,
+    aniosDisponibles: List<Int>,
     mesesDisponibles: List<Int>,
     errorValidacion: String?
 ) {
@@ -347,8 +347,8 @@ private fun SelectorMesAnio(
         }
     }
 
-    // Construir lista de años como strings
-    val aniosParaMostrar = añosDisponibles.map { it.toString() }
+    // Construir lista de anios como strings
+    val aniosParaMostrar = aniosDisponibles.map { it.toString() }
 
     Card(
         modifier = Modifier.fillMaxWidth(),

@@ -10,8 +10,12 @@ import java.util.*
 /**
  * Repositorio para obtener datos de SLA desde la API REST de SQL Server
  * CALCULA las estadísticas en Android, no en el backend
+ *
+ * ⚠️ OBSOLETO: Esta clase ha sido unificada en SlaRepository.kt
+ * Este archivo debe ser eliminado manualmente
  */
-class SlaRepository {
+@Deprecated("Usar SlaRepository en lugar de esta clase", ReplaceWith("SlaRepository"))
+class SlaRepository_OBSOLETO {
 
     private val TAG = "SlaRepository"
     private val apiService = RetrofitClient.slaApiService
@@ -114,13 +118,14 @@ class SlaRepository {
     /**
      * Calcula estadísticas por mes a partir de solicitudes crudas
      */
-    private fun calcularEstadisticasPorMes(solicitudes: List<com.example.proyecto1.data.remote.dto.SolicitudSlaDto>): List<EstadisticaMes> {
+    private fun calcularEstadisticasPorMes(solicitudes: List<com.example.proyecto1.data.remote.dto.SolicitudReporteDto>): List<EstadisticaMes> {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
 
         // Agrupar por mes
         val porMes = solicitudes.groupBy {
             try {
-                val fecha = dateFormat.parse(it.fechaSolicitud)
+                val fechaStr = it.fechaSolicitud ?: return@groupBy "UNKNOWN"
+                val fecha = dateFormat.parse(fechaStr)
                 if (fecha != null) {
                     val cal = Calendar.getInstance()
                     cal.time = fecha
@@ -135,7 +140,11 @@ class SlaRepository {
 
         // Calcular estadísticas
         return porMes.map { (mes, sols) ->
-            val cumplidas = sols.count { it.numDiasSla <= it.diasUmbral }
+            val cumplidas = sols.count {
+                val numDias = it.numDiasSla ?: Int.MAX_VALUE
+                val umbral = it.diasUmbral ?: 0
+                numDias <= umbral
+            }
             val total = sols.size
             val porcentaje = if (total > 0) (cumplidas.toDouble() / total) * 100.0 else 0.0
 
@@ -163,7 +172,7 @@ class SlaRepository {
             return estadisticas.mapIndexed { index, est ->
                 SlaDataPoint(est.mes, est.porcentajeCumplimiento, index + 1)
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return generarDatosDemo()
         }
     }
@@ -188,9 +197,9 @@ class SlaRepository {
      * NOTA: Este método usa endpoints que solo están disponibles en TendenciaRepository
      * Si necesitas años disponibles, usa TendenciaRepository en su lugar
      */
-    suspend fun obtenerAñosDisponibles(): List<Int> {
+    fun obtenerAniosDisponibles(): List<Int> {
         // Fallback: retorna últimos 3 años
-        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
         return listOf(currentYear, currentYear - 1, currentYear - 2)
     }
 
@@ -199,7 +208,8 @@ class SlaRepository {
      * NOTA: Este método usa endpoints que solo están disponibles en TendenciaRepository
      * Si necesitas meses disponibles, usa TendenciaRepository en su lugar
      */
-    suspend fun obtenerMesesDisponibles(anio: Int): List<Int> {
+    @Suppress("UNUSED_PARAMETER")
+    fun obtenerMesesDisponibles(anio: Int): List<Int> {
         // Fallback: retorna todos los meses
         return (1..12).toList()
     }
