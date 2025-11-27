@@ -1,39 +1,26 @@
 package com.example.proyecto1.data.remote.api
 
-import com.example.proyecto1.data.remote.dto.SolicitudSlaDto
+import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
 
 /**
  * Interfaz de API REST para consumir el backend de SQL Server
- *
- * IMPORTANTE: Este endpoint debe estar implementado en tu API de Visual Studio 2022
  */
 interface SlaApiService {
 
     /**
-     * Obtiene las solicitudes crudas desde la API
-     * La app Android calculará las estadísticas y predicción
-     *
-     * Endpoint en tu API:
+     * Obtiene las solicitudes con detalles. Usado por las pantallas de Reportes y Predicción.
      * GET /api/sla/solicitudes
-     *
-     * Retorna una lista de solicitudes con:
-     * - idSolicitud
-     * - fechaSolicitud
-     * - numDiasSla (días que tardó la solicitud)
-     * - diasUmbral (días máximos permitidos del SLA)
-     * - idArea
-     * - codigoSla
      */
     @GET("api/sla/solicitudes")
     suspend fun obtenerSolicitudes(
-        @Query("meses") meses: Int? = 12,
+        @Query("meses") meses: Int? = null,
         @Query("anio") anio: Int? = null,
         @Query("mes") mes: Int? = null,
         @Query("idArea") idArea: Int? = null
-    ): Response<List<SolicitudSlaDto>>
+    ): Response<List<SolicitudReporteDto>>
 
     /**
      * Obtiene los años disponibles en la base de datos
