@@ -23,6 +23,8 @@ import com.example.proyecto1.ui.theme.Proyecto1Theme
 import com.example.proyecto1.ui.theme.White
 import com.example.proyecto1.presentation.prediccion.PrediccionScreen
 import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
+import com.example.proyecto1.presentation.tendencia.TendenciaScreen
+import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -53,6 +55,10 @@ fun AppNavigation() {
                 val prediccionViewModel: PrediccionViewModel = viewModel()
                 PrediccionScreen(vm = prediccionViewModel)
             }
+            composable("tendencia") {
+                val tendenciaViewModel: TendenciaViewModel = viewModel()
+                TendenciaScreen(vm = tendenciaViewModel)
+            }
         }
     }
 }
@@ -76,7 +82,7 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
             }
             HorizontalDivider(thickness = 0.5.dp)
             val menuItems = listOf(
-                "Inicio", "Carga de Datos", "Gestión de Datos", "Métricas SLA", "Reportes", "Predicción", "Notificaciones", "Usuarios", "Configuración"
+                "Inicio", "Carga de Datos", "Gestión de Datos", "Métricas SLA", "Reportes", "Predicción", "Tendencia", "Notificaciones", "Usuarios", "Configuración"
             )
             menuItems.forEach { item ->
                 NavigationDrawerItem(
@@ -87,6 +93,7 @@ fun AppDrawerContent(navController: NavController, closeDrawer: () -> Unit) {
                         when (item) {
                             "Configuración" -> navController.navigate("configuration")
                             "Predicción" -> navController.navigate("prediccion")
+                            "Tendencia" -> navController.navigate("tendencia")
                             "Reportes" -> navController.navigate("report_preview")
                             "Inicio" -> navController.navigate("dashboard")
                             else -> {

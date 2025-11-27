@@ -31,12 +31,12 @@ android {
                 "proguard-rules.pro"
             )
             // URL configurada para dispositivo físico con IP local del PC
-            buildConfigField("String", "API_BASE_URL", "\"http://172.19.5.121:5120/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120/\"")
         }
         debug {
             // IP local del PC WiFi: 192.168.100.4 (nueva red)
             // IMPORTANTE: PC y celular deben estar en la MISMA red WiFi
-            buildConfigField("String", "API_BASE_URL", "\"http://172.19.5.121:5120/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120/\"")
         }
     }
 

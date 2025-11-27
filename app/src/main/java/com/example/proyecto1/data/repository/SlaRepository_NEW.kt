@@ -185,41 +185,22 @@ class SlaRepository {
 
     /**
      * Obtiene los años disponibles en la base de datos
+     * NOTA: Este método usa endpoints que solo están disponibles en TendenciaRepository
+     * Si necesitas años disponibles, usa TendenciaRepository en su lugar
      */
     suspend fun obtenerAñosDisponibles(): List<Int> {
-        return try {
-            val response = apiService.obtenerAñosDisponibles()
-            if (response.isSuccessful && !response.body().isNullOrEmpty()) {
-                response.body()!!
-            } else {
-                // Fallback: retorna últimos 3 años
-                val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-                listOf(currentYear, currentYear - 1, currentYear - 2)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error al obtener años: ${e.message}")
-            // Fallback: retorna últimos 3 años
-            val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-            listOf(currentYear, currentYear - 1, currentYear - 2)
-        }
+        // Fallback: retorna últimos 3 años
+        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        return listOf(currentYear, currentYear - 1, currentYear - 2)
     }
 
     /**
      * Obtiene los meses disponibles para un año específico
+     * NOTA: Este método usa endpoints que solo están disponibles en TendenciaRepository
+     * Si necesitas meses disponibles, usa TendenciaRepository en su lugar
      */
     suspend fun obtenerMesesDisponibles(anio: Int): List<Int> {
-        return try {
-            val response = apiService.obtenerMesesDisponibles(anio)
-            if (response.isSuccessful && !response.body().isNullOrEmpty()) {
-                response.body()!!
-            } else {
-                // Fallback: retorna todos los meses
-                (1..12).toList()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error al obtener meses: ${e.message}")
-            // Fallback: retorna todos los meses
-            (1..12).toList()
-        }
+        // Fallback: retorna todos los meses
+        return (1..12).toList()
     }
 }

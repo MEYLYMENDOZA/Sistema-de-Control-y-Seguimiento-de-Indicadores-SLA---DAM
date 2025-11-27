@@ -20,7 +20,7 @@ object RetrofitClient {
         BuildConfig.API_BASE_URL
     } catch (e: Exception) {
         // Fallback si BuildConfig no está generado
-        "http://172.19.5.121:5120/"
+        "http://192.168.100.4:5120/"
     }
     
     init {
