@@ -22,7 +22,7 @@ import java.util.*
 
 /**
  * Exportador de reportes de tendencia a PDF usando iText
- * US-12: Exportar reporte PDF con grÃ¡fica, tabla y KPIs
+ * US-12: Exportar reporte PDF con grafica, tabla y KPIs
  * Formato igual al de predicciones con logo TATA
  */
 class PdfExporterTendencia(private val context: Context) {
@@ -152,11 +152,11 @@ class PdfExporterTendencia(private val context: Context) {
 
     private fun agregarSubtitulo(document: Document, filtros: FiltrosReporte) {
         val tipoSla = filtros.tipoSla ?: "Todos"
-        val anio = filtros.anio?.toString() ?: "Todos los aÃ±os"
-        val area = filtros.idArea?.toString() ?: "Todas las Ã¡reas"
+        val anio = filtros.anio?.toString() ?: "Todos los anos"
+        val area = filtros.idArea?.toString() ?: "Todas las areas"
 
         val subtitulo = Paragraph(
-            "Tipo SLA: $tipoSla | Año: $anio | Área: $area",
+            "Tipo SLA: $tipoSla | Ano: $anio | Area: $area",
             getFontSubtitulo()
         )
         subtitulo.alignment = Element.ALIGN_CENTER
@@ -179,8 +179,8 @@ class PdfExporterTendencia(private val context: Context) {
         table.spacingBefore = 5f   // Reducido de 10f a 5f
         table.spacingAfter = 10f   // Reducido de 15f a 10f
 
-        // ProyecciÃ³n
-        val cellProyLabel = PdfPCell(Phrase("SLA Proyectado (prÃ³ximo mes):", getFontBold()))
+        // Proyeccion
+        val cellProyLabel = PdfPCell(Phrase("SLA Proyectado (proximo mes):", getFontBold()))
         cellProyLabel.border = Rectangle.NO_BORDER
         cellProyLabel.paddingBottom = 10f
         table.addCell(cellProyLabel)
@@ -238,8 +238,8 @@ class PdfExporterTendencia(private val context: Context) {
         cellPeorValue.paddingTop = 5f
         table.addCell(cellPeorValue)
 
-        // Promedio histÃ³rico
-        val cellPromLabel = PdfPCell(Phrase("Promedio histÃ³rico:", getFontNormal()))
+        // Promedio historico
+        val cellPromLabel = PdfPCell(Phrase("Promedio historico:", getFontNormal()))
         cellPromLabel.border = Rectangle.NO_BORDER
         cellPromLabel.paddingTop = 5f
         table.addCell(cellPromLabel)
@@ -355,7 +355,7 @@ class PdfExporterTendencia(private val context: Context) {
     }
 
     private fun agregarTablaHistorico(document: Document, historico: List<PuntoHistoricoDto>) {
-        val chunk = Chunk("\nDatos HistÃ³ricos Mensuales\n", getFontBold())
+        val chunk = Chunk("\nDatos Historicos Mensuales\n", getFontBold())
         document.add(Paragraph(chunk))
 
         val table = PdfPTable(5)
@@ -364,7 +364,7 @@ class PdfExporterTendencia(private val context: Context) {
         table.spacingBefore = 5f
 
         // Headers
-        table.addCell(crearCeldaHeader("PerÃ­odo"))
+        table.addCell(crearCeldaHeader("Periodo"))
         table.addCell(crearCeldaHeader("Total"))
         table.addCell(crearCeldaHeader("Cumplidos"))
         table.addCell(crearCeldaHeader("No Cumplidos"))
@@ -391,18 +391,18 @@ class PdfExporterTendencia(private val context: Context) {
         estadoTendencia: String,
         filtros: FiltrosReporte
     ) {
-        val chunk = Chunk("\n\nAnÃ¡lisis de Tendencia\n", getFontBold())
+        val chunk = Chunk("\n\nAnalisis de Tendencia\n", getFontBold())
         document.add(Paragraph(chunk))
 
         val interpretacion = when (estadoTendencia.lowercase()) {
             "mejorando" -> "La tendencia muestra una mejora constante en el cumplimiento del SLA. " +
-                    "Se espera que el prÃ³ximo perÃ­odo alcance un ${String.format("%.2f%%", proyeccion)} de cumplimiento."
+                    "Se espera que el proximo periodo alcance un ${String.format("%.2f%%", proyeccion)} de cumplimiento."
             "empeorando" -> "La tendencia indica un deterioro en el cumplimiento del SLA. " +
-                    "Se proyecta un ${String.format("%.2f%%", proyeccion)} para el prÃ³ximo perÃ­odo. " +
+                    "Se proyecta un ${String.format("%.2f%%", proyeccion)} para el proximo periodo. " +
                     "Se recomienda revisar los procesos y tomar medidas correctivas."
             else -> "La tendencia se mantiene estable. " +
-                    "Se proyecta un ${String.format("%.2f%%", proyeccion)} para el prÃ³ximo perÃ­odo, " +
-                    "similar al rendimiento histÃ³rico."
+                    "Se proyecta un ${String.format("%.2f%%", proyeccion)} para el proximo periodo, " +
+                    "similar al rendimiento historico."
         }
 
         val paragraph = Paragraph(interpretacion, getFontNormal())
@@ -414,7 +414,7 @@ class PdfExporterTendencia(private val context: Context) {
 
     private fun agregarPieDePagina(document: Document) {
         val fecha = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
-        val pie = Paragraph("\nGenerado: $fecha\nFuente: Sistema de Control SLA - Módulo de Tendencia", getFontPequeno())
+        val pie = Paragraph("\nGenerado: $fecha\nFuente: Sistema de Control SLA - Modulo de Tendencia", getFontPequeno())
         pie.alignment = Element.ALIGN_CENTER
         pie.spacingBefore = 10f  // Reducido de 20f a 10f
         document.add(pie)
@@ -440,35 +440,70 @@ class PdfExporterTendencia(private val context: Context) {
     }
 
     // ============================================================================
-    // FUNCIONES DE FONTS
+    // FUNCIONES DE FONTS CON SOPORTE UTF-8 (CP1252)
     // ============================================================================
 
     private fun getFontTitulo(): Font {
-        return Font(Font.FontFamily.HELVETICA, 18f, Font.BOLD, colorAzul)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 18f, Font.BOLD, colorAzul)
     }
 
     private fun getFontSubtitulo(): Font {
-        return Font(Font.FontFamily.HELVETICA, 14f, Font.NORMAL, colorGris)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 14f, Font.NORMAL, colorGris)
     }
 
     private fun getFontBold(): Font {
-        return Font(Font.FontFamily.HELVETICA, 12f, Font.BOLD, BaseColor.BLACK)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 12f, Font.BOLD, BaseColor.BLACK)
     }
 
     private fun getFontNormal(): Font {
-        return Font(Font.FontFamily.HELVETICA, 11f, Font.NORMAL, BaseColor.BLACK)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 11f, Font.NORMAL, BaseColor.BLACK)
     }
 
     private fun getFontGrande(): Font {
-        return Font(Font.FontFamily.HELVETICA, 24f, Font.BOLD, colorAzul)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 24f, Font.BOLD, colorAzul)
     }
 
     private fun getFontPequeno(): Font {
-        return Font(Font.FontFamily.HELVETICA, 9f, Font.NORMAL, colorGris)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 9f, Font.NORMAL, colorGris)
     }
 
     private fun getFontTablaHeader(): Font {
-        return Font(Font.FontFamily.HELVETICA, 11f, Font.BOLD, BaseColor.WHITE)
+        val baseFont = com.itextpdf.text.pdf.BaseFont.createFont(
+            com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD,
+            com.itextpdf.text.pdf.BaseFont.CP1252,
+            com.itextpdf.text.pdf.BaseFont.EMBEDDED
+        )
+        return Font(baseFont, 11f, Font.BOLD, BaseColor.WHITE)
     }
 
     /**
@@ -506,7 +541,7 @@ class PdfExporterTendencia(private val context: Context) {
     }
 
     // ============================================================================
-    // FUNCIÃ“N PARA ABRIR PDF
+    // FUNCION PARA ABRIR PDF
     // ============================================================================
 
     private fun abrirPDF(context: Context, file: File) {
@@ -548,7 +583,7 @@ class PdfExporterTendencia(private val context: Context) {
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, "Reporte de Tendencia SLA")
                 putExtra(Intent.EXTRA_TEXT, "Te comparto el reporte de tendencia SLA.\n\nGenerado por Sistema de Control SLA")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }
 
             val chooserIntent = Intent.createChooser(shareIntent, "Compartir reporte con...").apply {
