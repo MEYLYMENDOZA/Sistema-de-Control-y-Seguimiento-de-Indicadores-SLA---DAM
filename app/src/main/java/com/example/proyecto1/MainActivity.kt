@@ -31,6 +31,11 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.compose.material3.*
 import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
+import com.example.proyecto1.presentation.prediccion.PrediccionScreen
+import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
+import com.example.proyecto1.ui.login.LoginScreen
+import com.example.proyecto1.ui.report.ConfigurationScreen
+import com.example.proyecto1.ui.report.DashboardScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -39,6 +44,7 @@ import com.example.proyecto1.presentation.prediccion.PrediccionScreen
 import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
 import com.example.proyecto1.presentation.tendencia.TendenciaScreen
 import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
+
 
 // DataStore delegate (Preferences) - disponible a nivel de archivo
 private val Context.dataStore by preferencesDataStore(name = "user_prefs")
@@ -146,7 +152,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
             val titulo = when (currentRoute) {
                 Screen.Alertas.route -> "Alertas"
                 Screen.Dashboard.route -> "Dashboard"
-                Screen.Reportes.route -> "Reportes"
+                Screen.Reportes.route -> "Reportes" // El título lo gestiona DashboardScreen
                 Screen.Usuarios.route -> "Usuarios"
                 Screen.Carga.route -> "Carga de Datos"
                 Screen.Prediccion.route -> "Predicción SLA"
@@ -157,27 +163,33 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
 
             Scaffold(
                 topBar = {
-                    TopAppBar(
-                        title = { Text(titulo) },
-                        navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                    // Las pantallas de Reportes y Configuración tienen su propia TopAppBar
+                    if (currentRoute != Screen.Reportes.route && currentRoute != Screen.Configuracion.route) {
+                        TopAppBar(
+                            title = { Text(titulo) },
+                            navigationIcon = {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Filled.Menu, contentDescription = "Abrir menú")
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 },
                 bottomBar = {
-                    NavigationBar {
-                        val items = listOf(Screen.Alertas, Screen.Dashboard, Screen.Reportes)
-                        val currentDestination by modulesNavController.currentBackStackEntryAsState()
-                        val currentRoute = currentDestination?.destination?.route
-                        items.forEach { screen ->
-                            NavigationBarItem(
-                                selected = currentRoute == screen.route,
-                                onClick = { modulesNavController.navigate(screen.route) { launchSingleTop = true } },
-                                icon = { Icon(Icons.Filled.Report, contentDescription = null) },
-                                label = { Text(screen.label) }
-                            )
+                    // Las pantallas de Reportes y Configuración no tienen BottomBar
+                    if (currentRoute != Screen.Reportes.route && currentRoute != Screen.Configuracion.route) {
+                        NavigationBar {
+                            val items = listOf(Screen.Alertas, Screen.Dashboard, Screen.Reportes)
+                            val currentBottomNavDestination by modulesNavController.currentBackStackEntryAsState()
+                            val currentBottomNavRoute = currentBottomNavDestination?.destination?.route
+                            items.forEach { screen ->
+                                NavigationBarItem(
+                                    selected = currentBottomNavRoute == screen.route,
+                                    onClick = { modulesNavController.navigate(screen.route) { launchSingleTop = true } },
+                                    icon = { Icon(Icons.Filled.Report, contentDescription = null) },
+                                    label = { Text(screen.label) }
+                                )
+                            }
                         }
                     }
                 }
@@ -189,18 +201,29 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                 ) {
                     composable(Screen.Alertas.route) { AlertasPlaceholder() }
                     composable(Screen.Dashboard.route) { DashboardPlaceholder() }
-                    composable(Screen.Reportes.route) { ReportesPlaceholder() }
+                    composable(Screen.Reportes.route) {
+                        DashboardScreen(
+                            navController = modulesNavController,
+                            openDrawer = { scope.launch { drawerState.open() } }
+                        )
+                    }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
                     composable(Screen.Carga.route) { CargaPlaceholder() }
                     composable(Screen.Prediccion.route) {
                         val prediccionViewModel: PrediccionViewModel = viewModel()
                         PrediccionScreen(vm = prediccionViewModel)
                     }
+
                     composable(Screen.Tendencia.route) {
                         val tendenciaViewModel: TendenciaViewModel = viewModel()
                         TendenciaScreen(vm = tendenciaViewModel)
                     }
                     composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
+
+                    composable(Screen.Configuracion.route) {
+                        ConfigurationScreen(openDrawer = { scope.launch { drawerState.open() } })
+                    }
+
                 }
             }
         }
