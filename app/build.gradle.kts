@@ -30,13 +30,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // URL configurada para dispositivo físico con IP local del PC
-            buildConfigField("String", "API_BASE_URL", "\"http://172.19.5.121:5120/\"")
+            // Para pruebas en dispositivo físico. Reemplaza con la IP de tu PC en la red WiFi.
+            // IP actual de la nueva red: 192.168.100.4
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120\"")
         }
         debug {
-            // IP local del PC WiFi: 192.168.100.4 (nueva red)
-            // IMPORTANTE: PC y celular deben estar en la MISMA red WiFi
-            buildConfigField("String", "API_BASE_URL", "\"http://172.19.5.121:5120/\"")
+            // URL para el emulador de Android Studio, apunta al localhost de la PC.
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120\"")
         }
     }
 
