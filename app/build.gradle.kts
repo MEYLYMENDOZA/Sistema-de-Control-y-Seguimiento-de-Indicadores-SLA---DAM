@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
     id("com.google.gms.google-services")
+    id("com.google.dagger.hilt.android") version "2.51.1"
+    kotlin("kapt")
 }
 
 @Suppress("EditedTargetSdkVersion")
@@ -31,12 +33,11 @@ android {
                 "proguard-rules.pro"
             )
             // URL configurada para dispositivo físico con IP local del PC
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.18.248:5120/\"")
         }
         debug {
-            // IP local del PC WiFi: 192.168.100.4 (nueva red)
-            // IMPORTANTE: PC y celular deben estar en la MISMA red WiFi
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120/\"")
+            // IP del emulador que apunta al localhost del PC
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120/\"")
         }
     }
 
@@ -103,10 +104,16 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Retrofit
+    // Retrofit & OkHttp
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Hilt (Inyección de dependencias)
+    implementation("com.google.dagger:hilt-android:2.51.1")
+    kapt("com.google.dagger:hilt-compiler:2.51.1")
+    implementation("androidx.hilt:hilt-navigation-compose:1.0.0")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.3.0"))

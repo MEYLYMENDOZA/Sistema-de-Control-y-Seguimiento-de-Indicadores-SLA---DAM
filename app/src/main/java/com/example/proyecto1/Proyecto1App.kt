@@ -4,15 +4,10 @@ import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class Proyecto1App : Application() {
-
-    // Scope para operaciones asíncronas de la aplicación
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
@@ -31,21 +26,13 @@ class Proyecto1App : Application() {
             FirebaseFirestore.getInstance().firestoreSettings = settings
             android.util.Log.d("Proyecto1App", "Firestore settings aplicados")
 
-            // ✅ Inicializar Retrofit de forma ASÍNCRONA para no bloquear el hilo principal
-            android.util.Log.d("Proyecto1App", "🔍 Iniciando detección automática de API (asíncrono)...")
-            applicationScope.launch {
-                try {
-                    com.example.proyecto1.data.remote.api.RetrofitClient.initialize(this@Proyecto1App)
-                    val baseUrl = com.example.proyecto1.data.remote.api.RetrofitClient.getCurrentBaseUrl()
-                    android.util.Log.d("Proyecto1App", "✅ API configurada: $baseUrl")
-                } catch (e: Exception) {
-                    android.util.Log.e("Proyecto1App", "❌ Error al configurar API", e)
-                }
-            }
+            // La inicialización de Retrofit ahora es gestionada por Hilt y lazy initialization.
+            // No se requiere inicialización manual aquí.
+            android.util.Log.d("Proyecto1App", "Inicialización de red gestionada por Hilt/Lazy.")
 
         } catch (e: Exception) {
             // Log del error en caso de fallo de inicialización
-            android.util.Log.e("Proyecto1App", "Error al inicializar Firebase", e)
+            android.util.Log.e("Proyecto1App", "Error en la inicialización", e)
         }
     }
 }

@@ -1,4 +1,4 @@
-package com.example.proyecto1 // ASUMO QUE TU CLASE MAINACTIVITY ESTÁ EN ESTE PACKAGE
+package com.example.proyecto1
 
 import android.app.Application
 import android.content.Context
@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext // NECESARIO PARA OBTENER EL CONTEXTO
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -30,6 +30,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.compose.material3.*
 import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
+import com.example.proyecto1.presentation.carga.CargaScreen // Importar CargaScreen
 import com.example.proyecto1.ui.login.LoginScreen
 import com.example.proyecto1.ui.report.ConfigurationScreen
 import com.example.proyecto1.ui.report.DashboardScreen
@@ -186,7 +187,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                         )
                     }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
-                    composable(Screen.Carga.route) { CargaPlaceholder() }
+                    composable(Screen.Carga.route) { CargaScreen() } // Reemplazar Placeholder
                     composable(Screen.Prediccion.route) {
                         val prediccionViewModel: PrediccionViewModel = viewModel()
                         PrediccionScreen(vm = prediccionViewModel)
