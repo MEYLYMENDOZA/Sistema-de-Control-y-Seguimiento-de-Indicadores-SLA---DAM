@@ -195,7 +195,7 @@ class PdfExporter(private val context: Context) {
     private fun agregarEncabezado(document: Document) {
         try {
             // Cargar logo TATA desde recursos drawable
-            // Nota: El archivo se llama Logo_TATA.png pero Android lo convierte a logo_tata
+            // Nota: El archivo se llama logo_TATA.png pero Android lo convierte a logo_tata
             val resourceId = context.resources.getIdentifier("logo_tata", "drawable", context.packageName)
 
             val logoBitmap = if (resourceId != 0) {
