@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
@@ -30,7 +31,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.compose.material3.*
 import androidx.compose.material3.DrawerValue as M3DrawerValue
 import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
-import com.example.proyecto1.presentation.carga.CargaScreen // Importar CargaScreen
+import com.example.proyecto1.presentation.carga.CargaScreen
+import com.example.proyecto1.presentation.gestion.GestionScreen
+import com.example.proyecto1.presentation.navigation.NavigationViewModel
 import com.example.proyecto1.ui.login.LoginScreen
 import com.example.proyecto1.ui.report.ConfigurationScreen
 import com.example.proyecto1.ui.report.DashboardScreen
@@ -42,12 +45,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-
-// DataStore delegate (Preferences) - disponible a nivel de archivo
 private val Context.dataStore by preferencesDataStore(name = "user_prefs")
 
-// -------------------------------------------------
-// Screen routes (simple sealed)
 sealed class Screen(val route: String, val label: String) {
     object Login : Screen("login", "Login")
     object Alertas : Screen("alertas", "Alertas")
@@ -55,13 +54,12 @@ sealed class Screen(val route: String, val label: String) {
     object Reportes : Screen("reportes", "Reportes")
     object Usuarios : Screen("usuarios", "Usuarios")
     object Carga : Screen("carga", "Carga")
+    object Gestion : Screen("gestion", "Gestión de Datos") // <-- NUEVA RUTA
     object Prediccion : Screen("prediccion", "Predicción")
     object Tendencia : Screen("tendencia", "Tendencia")
     object Configuracion : Screen("configuracion", "Configuración")
 }
 
-// -------------------------------------------------
-// SessionViewModel (antes LoginViewModel) que usa Preferences DataStore para persistir la sesión
 class SessionViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = getApplication<Application>().applicationContext
     private val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
@@ -74,18 +72,20 @@ class SessionViewModel(application: Application) : AndroidViewModel(application)
     fun clearSession() { viewModelScope.launch { appContext.dataStore.edit { it[IS_LOGGED_IN] = false } } }
 }
 
-class SessionViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
+class MainViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SessionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
             return SessionViewModel(application) as T
         }
+         if (modelClass.isAssignableFrom(NavigationViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return NavigationViewModel() as T
+        }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
 
-// -------------------------------------------------
-// MainActivity completo y autocontenido
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,18 +93,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val application = LocalContext.current.applicationContext as Application
-                val factory = remember { SessionViewModelFactory(application) }
-                AppRoot(sessionViewModel = viewModel(factory = factory))
+                val factory = remember { MainViewModelFactory(application) }
+                AppRoot(sessionViewModel = viewModel(factory = factory), navViewModel = viewModel(factory = factory))
             }
         }
     }
 }
 
-// -------------------------------------------------
-// AppRoot: controla la separación estricta de NavHosts
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot(sessionViewModel: SessionViewModel) {
+fun AppRoot(sessionViewModel: SessionViewModel, navViewModel: NavigationViewModel) {
     val isLoggedIn = remember { mutableStateOf<Boolean?>(null) }
 
     if (isLoggedIn.value == null) {
@@ -117,7 +115,6 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
         val loginNavController = rememberNavController()
         NavHost(navController = loginNavController, startDestination = Screen.Login.route) {
             composable(Screen.Login.route) {
-                // Usa LoginScreen avanzado desde ui.login
                 LoginScreen(onLoginSuccess = {
                     sessionViewModel.saveSession()
                     isLoggedIn.value = true
@@ -128,10 +125,12 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
         val modulesNavController = rememberNavController()
         val drawerState = rememberM3DrawerState(M3DrawerValue.Closed)
         val scope = rememberCoroutineScope()
+        val isGestionEnabled by navViewModel.isGestionDeDatosEnabled.collectAsState()
 
         ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
             ModalDrawerSheet {
                 DrawerMenu(
+                    isGestionEnabled = isGestionEnabled,
                     onNavigateTo = { route ->
                         scope.launch { drawerState.close() }
                         modulesNavController.navigate(route) { launchSingleTop = true }
@@ -145,13 +144,13 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
             val currentDestination by modulesNavController.currentBackStackEntryAsState()
             val currentRoute = currentDestination?.destination?.route
 
-            // Determinar el título según la pantalla actual
             val titulo = when (currentRoute) {
                 Screen.Alertas.route -> "Alertas"
                 Screen.Dashboard.route -> "Dashboard"
-                Screen.Reportes.route -> "Reportes" // El título lo gestiona DashboardScreen
+                Screen.Reportes.route -> "Reportes" 
                 Screen.Usuarios.route -> "Usuarios"
                 Screen.Carga.route -> "Carga de Datos"
+                Screen.Gestion.route -> "Gestión de Datos" // <-- TÍTULO PARA LA NUEVA PANTALLA
                 Screen.Prediccion.route -> "Predicción SLA"
                 Screen.Tendencia.route -> "Tendencia y Proyección SLA"
                 Screen.Configuracion.route -> "Configuración"
@@ -160,7 +159,6 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
 
             Scaffold(
                 topBar = {
-                    // Las pantallas de Reportes y Configuración tienen su propia TopAppBar
                     if (currentRoute != Screen.Reportes.route && currentRoute != Screen.Configuracion.route) {
                         TopAppBar(
                             title = { Text(titulo) },
@@ -187,7 +185,8 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                         )
                     }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
-                    composable(Screen.Carga.route) { CargaScreen() } // Reemplazar Placeholder
+                    composable(Screen.Carga.route) { CargaScreen() } 
+                    composable(Screen.Gestion.route) { GestionScreen() } // <-- NAVEGACIÓN A LA NUEVA PANTALLA
                     composable(Screen.Prediccion.route) {
                         val prediccionViewModel: PrediccionViewModel = viewModel()
                         PrediccionScreen(vm = prediccionViewModel)
@@ -197,11 +196,9 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                         val tendenciaViewModel: TendenciaViewModel = viewModel()
                         TendenciaScreen(vm = tendenciaViewModel)
                     }
-                    composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
-
-                    composable(Screen.Configuracion.route) {
+                    composable(Screen.Configuracion.route) { 
                         ConfigurationScreen(openDrawer = { scope.launch { drawerState.open() } })
-                    }
+                     }
 
                 }
             }
@@ -209,11 +206,8 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
     }
 }
 
-// -------------------------------------------------
-// DrawerMenu, BottomBar, LoginScreen y Placeholders
-
 @Composable
-fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
+fun DrawerMenu(isGestionEnabled: Boolean, onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -223,66 +217,24 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
         Text(text = "Menú", style = MaterialTheme.typography.titleLarge)
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Enlaces a módulos
-        Text(
-            text = "Alertas",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Alertas.route) }
+        val menuItems = listOf(
+            Screen.Alertas, Screen.Dashboard, Screen.Reportes, Screen.Usuarios, Screen.Carga, 
+            Screen.Gestion, Screen.Prediccion, Screen.Tendencia, Screen.Configuracion
         )
 
-        Text(
-            text = "Dashboard",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Dashboard.route) }
-        )
-
-        Text(
-            text = "Reportes",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Reportes.route) }
-        )
-
-        Text(
-            text = "Usuarios",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Usuarios.route) }
-        )
-
-        Text(
-            text = "Carga",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Carga.route) }
-        )
-
-        Text(
-            text = "Predicción",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Prediccion.route) }
-        )
-
-        Text(
-            text = "Tendencia",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Tendencia.route) }
-        )
-
-        Text(
-            text = "Configuración",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Configuracion.route) }
-        )
+        menuItems.forEach { screen ->
+            val isEnabled = if (screen == Screen.Gestion) isGestionEnabled else true
+             Text(
+                text = screen.label,
+                color = if(isEnabled) Color.Black else Color.Gray,
+                modifier = Modifier
+                    .padding(vertical = 8.dp)
+                    .clickable(enabled = isEnabled) { onNavigateTo(screen.route) }
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Logout
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,34 +251,22 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
 
 
 @Composable
-fun AlertasPlaceholder() {
-    PlaceholderScreen(title = "Alertas")
-}
+fun AlertasPlaceholder() { PlaceholderScreen(title = "Alertas") }
 
 @Composable
-fun DashboardPlaceholder() {
-    PlaceholderScreen(title = "Dashboard")
-}
+fun DashboardPlaceholder() { PlaceholderScreen(title = "Dashboard") }
 
 @Composable
-fun ReportesPlaceholder() {
-    PlaceholderScreen(title = "Reportes")
-}
+fun ReportesPlaceholder() { PlaceholderScreen(title = "Reportes") }
 
 @Composable
-fun UsuariosPlaceholder() {
-    PlaceholderScreen(title = "Usuarios")
-}
+fun UsuariosPlaceholder() { PlaceholderScreen(title = "Usuarios") }
 
 @Composable
-fun CargaPlaceholder() {
-    PlaceholderScreen(title = "Carga")
-}
+fun CargaPlaceholder() { PlaceholderScreen(title = "Carga") }
 
 @Composable
-fun ConfiguracionPlaceholder() {
-    PlaceholderScreen(title = "Configuración")
-}
+fun ConfiguracionPlaceholder() { PlaceholderScreen(title = "Configuración") }
 
 @Composable
 fun PlaceholderScreen(title: String) {

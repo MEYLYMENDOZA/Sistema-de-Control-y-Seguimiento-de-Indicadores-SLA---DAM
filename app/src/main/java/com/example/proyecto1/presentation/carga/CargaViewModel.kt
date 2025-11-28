@@ -8,6 +8,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.proyecto1.data.SlaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -102,14 +103,18 @@ class CargaViewModel : ViewModel() {
 
                     val summary = CargaSummaryData(total, cumplen, noCumplen, porcCumplimiento)
 
+                    // Actualizar la UI local y el repositorio central
                     _uiState.update { it.copy(summary = summary, items = finalItems) }
+                    SlaRepository.updateItems(finalItems)
                 } else {
                      _uiState.update { it.copy(errorMessage = "No se encontraron datos válidos en el archivo.") }
+                     SlaRepository.clearAll()
                 }
 
             } catch (e: Exception) {
                 Log.e("CargaViewModel", "Error al procesar el archivo", e)
                 _uiState.update { it.copy(errorMessage = "No se pudo leer el archivo. ¿Es un .xlsx válido?") }
+                 SlaRepository.clearAll()
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
             }
@@ -154,7 +159,10 @@ class CargaViewModel : ViewModel() {
         }
     }
 
-    fun clearData() { _uiState.value = CargaUiState() }
+    fun clearData() { 
+        _uiState.value = CargaUiState()
+        SlaRepository.clearAll()
+    }
     fun userMessageShown() { _uiState.update { it.copy(userMessage = null, errorMessage = null) } }
 
     internal fun setUiStateForPreview(newState: CargaUiState) { _uiState.value = newState }
