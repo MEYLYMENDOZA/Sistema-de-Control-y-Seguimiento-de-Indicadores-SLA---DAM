@@ -54,22 +54,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.proyecto1.data.SlaRepository
+import com.example.proyecto1.network.SlaApiService
+import com.example.proyecto1.network.dto.SolicitudReporteDTO
+import com.example.proyecto1.network.dto.SolicitudUpdateDTO
+import retrofit2.Response
 
-// Data classes
-data class CargaSummaryData(
-    val total: Int, val cumplen: Int, val noCumplen: Int, val cumplimiento: Float
-)
-
-// **MODELO DE DATOS ACTUALIZADO**
-data class CargaItemData(
-    val codigo: String, val rol: String, val tipoSla: String, val cumplimiento: Float,
-    val diasTranscurridos: Int, // <-- Nuevo nombre
-    val cantidadPorRol: Int, val estado: String
-)
+// Las data classes se han movido a CargaState.kt
 
 @Composable
-fun CargaScreen(cargaViewModel: CargaViewModel = viewModel()) {
+fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
     val uiState by cargaViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -255,18 +250,21 @@ fun Pill(text: String, color: Color, textColor: Color, modifier: Modifier = Modi
 @Preview(showBackground = true, backgroundColor = 0xFFF0F2F5)
 @Composable
 fun CargaScreenPreview() {
-    CargaScreen(cargaViewModel = CargaViewModel())
+    // For previews, we must manually create dependencies as Hilt is not used.
+    val fakeViewModel = CargaViewModel(SlaRepository(FakeSlaApiService()))
+    fakeViewModel.setUiStateForPreview(
+        CargaUiState(
+            summary = CargaSummaryData(150, 120, 30, 80.0f),
+            items = listOf(
+                CargaItemData("SOL-001", "Desarrollador", "SLA1", 95.5f, 10, 5, "Cumple", fechaSolicitud = "01/01/2025", fechaIngreso = "11/01/2025")
+            )
+        )
+    )
+    CargaScreen(cargaViewModel = fakeViewModel)
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0F2F5)
-@Composable
-fun CargaScreenWithDataPreview() {
-    val cargaViewModel = CargaViewModel()
-    val previewSummary = CargaSummaryData(total = 2, cumplen = 1, noCumplen = 1, cumplimiento = 73.3f)
-    val previewData = listOf(
-        CargaItemData("SOL-001", "Desarrollador", "SLA1", 100.0f, 26, 1, "Cumple"),
-        CargaItemData("SOL-002", "Analista", "SLA2", 46.7f, 16, 1, "No Cumple")
-    )
-    cargaViewModel.setUiStateForPreview(CargaUiState(summary = previewSummary, items = previewData))
-    CargaScreen(cargaViewModel = cargaViewModel)
+// Helper class for Previews
+private class FakeSlaApiService : SlaApiService {
+    override suspend fun getSolicitudes(meses: Int?, anio: Int?, idArea: Int?): List<SolicitudReporteDTO> = emptyList()
+    override suspend fun updateSolicitud(body: SolicitudUpdateDTO): Response<Unit> = Response.success(Unit)
 }

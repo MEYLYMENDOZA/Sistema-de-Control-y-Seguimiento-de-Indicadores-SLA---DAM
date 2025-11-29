@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.proyecto1"
-        minSdk = 26  // Cambiado de 24 a 26 para soportar adaptive icons
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -32,11 +32,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // URL configurada para dispositivo físico con IP local del PC
             buildConfigField("String", "API_BASE_URL", "\"http://192.168.18.248:5120/\"")
         }
         debug {
-            // IP del emulador que apunta al localhost del PC
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120/\"")
         }
     }
@@ -44,6 +42,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -52,25 +51,26 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true  // Habilitar BuildConfig para usar API_BASE_URL
+        buildConfig = true
     }
 
     composeOptions {
-        // Actualizado a versión alineada con Kotlin 2.0 y últimas mejoras de Compose
         kotlinCompilerExtensionVersion = "1.7.8"
     }
 
     packaging {
+        // Configuración de empaquetado más permisiva para Apache POI
+        resources.excludes.add("/META-INF/services/javax.xml.stream.XMLInputFactory")
+        resources.excludes.add("/META-INF/services/javax.xml.stream.XMLOutputFactory")
+        resources.excludes.add("/META-INF/services/javax.xml.stream.XMLEventFactory")
         resources.excludes.add("/META-INF/{AL2.0,LGPL2.1}")
-        resources.excludes.add("META-INF/licenses/poi/*")
-        resources.excludes.add("META-INF/LICENSE")
-        resources.excludes.add("META-INF/NOTICE")
     }
 }
 
 dependencies {
 
-    // BOM alineado a versión reciente compatible con compiler 1.7.8
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
     val composeBom = platform("androidx.compose:compose-bom:2024.09.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -83,16 +83,14 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    // Icons extendidos (se mantiene, versión gestionada por BOM; quitar versión explícita anterior)
+    // Icons
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Activity Compose
+    // Activity & Navigation
     implementation("androidx.activity:activity-compose:1.9.0")
-
-    // Navigation Compose (última estable compatible con BOM)
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // Lifecycle / ViewModel Compose
+    // Lifecycle & ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
@@ -110,7 +108,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // Hilt (Inyección de dependencias)
+    // Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")
     kapt("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.0.0")
@@ -121,16 +119,21 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
 
-    // Material Components
+    // Material
     implementation("com.google.android.material:material:1.12.0")
 
     // PDF y Excel
     implementation("com.itextpdf:itextg:5.5.10")
-    implementation(libs.apache.poi)
+    implementation("org.apache.poi:poi:5.2.3")
+    implementation("org.apache.poi:poi-ooxml:5.2.3")
+
+    // Dependencias transitivas de POI que a veces fallan
+    implementation("org.apache.xmlbeans:xmlbeans:5.1.1")
+    implementation("org.apache.commons:commons-compress:1.21")
+    implementation("org.apache.commons:commons-collections4:4.4")
+    implementation("com.github.virtuald:curvesapi:1.06")
+    implementation("org.apache.logging.log4j:log4j-api:2.18.0")
 
     // Tests
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
