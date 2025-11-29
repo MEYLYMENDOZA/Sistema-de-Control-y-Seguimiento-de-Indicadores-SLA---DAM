@@ -25,6 +25,10 @@ object ExcelHelper {
                 val workbook = XSSFWorkbook(inputStream)
                 val sheet = workbook.getSheetAt(0)
 
+                // Formateadores de fecha
+                val inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                val outputFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
                 for (i in 1..sheet.lastRowNum) {
                     val row = sheet.getRow(i) ?: continue
                     try {
@@ -34,9 +38,9 @@ object ExcelHelper {
                         val fechaIngresoStr = row.getCell(3)?.stringCellValue ?: ""
                         val tipoSla = row.getCell(4)?.stringCellValue ?: ""
 
-                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                        val fechaSolicitud = LocalDate.parse(fechaSolicitudStr, formatter)
-                        val fechaIngreso = LocalDate.parse(fechaIngresoStr, formatter)
+                        // Parsear las fechas con el formato de entrada
+                        val fechaSolicitud = LocalDate.parse(fechaSolicitudStr, inputFormatter)
+                        val fechaIngreso = LocalDate.parse(fechaIngresoStr, inputFormatter)
 
                         val diasTranscurridos = ChronoUnit.DAYS.between(fechaSolicitud, fechaIngreso)
                         val targetDays = slaTargets[tipoSla] ?: 0L
@@ -60,8 +64,9 @@ object ExcelHelper {
                                 diasTranscurridos = diasTranscurridos.toInt(),
                                 cantidadPorRol = 0, // Se calculará después
                                 estado = estado,
-                                fechaSolicitud = fechaSolicitudStr, // <-- CAMPO AÑADIDO
-                                fechaIngreso = fechaIngresoStr      // <-- CAMPO AÑADIDO
+                                // CORRECCIÓN: Guardar las fechas con el formato de salida estandarizado
+                                fechaSolicitud = fechaSolicitud.format(outputFormatter),
+                                fechaIngreso = fechaIngreso.format(outputFormatter)
                             )
                         )
                     } catch (e: Exception) {
