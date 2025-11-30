@@ -2,26 +2,31 @@ package com.example.proyecto1.presentation.tendencia
 
 import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.proyecto1.data.remote.dto.AreaFiltroDto
+import com.example.proyecto1.data.remote.dto.PeriodoDto
 import com.example.proyecto1.data.remote.dto.PuntoHistoricoDto
 import com.example.proyecto1.data.remote.dto.PuntoTendenciaDto
+import com.example.proyecto1.data.remote.dto.TipoSlaDto
 import com.example.proyecto1.data.repository.TendenciaRepository
-// import com.example.proyecto1.utils.PdfExporterTendencia // TODO: Crear cuando sea necesario
+import com.example.proyecto1.utils.PdfExporterTendencia
+import com.example.proyecto1.utils.TendenciaCalculator
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import javax.inject.Inject
 
-/**
- * ViewModel para la pantalla de Tendencia y Proyección SLA
- * US-12: Visualizar tendencia y proyección de cumplimiento SLA
- */
-class TendenciaViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class TendenciaViewModel @Inject constructor(
+    private val repository: TendenciaRepository,
+    private val application: Application
+) : ViewModel() {
 
-    private val repository = TendenciaRepository()
-    private val pdfExporter = com.example.proyecto1.utils.PdfExporterTendencia(application)
+    private val pdfExporter = PdfExporterTendencia(application)
 
     // Estado de los datos
     private val _historico = MutableStateFlow<List<PuntoHistoricoDto>>(emptyList())
@@ -62,25 +67,21 @@ class TendenciaViewModel(application: Application) : AndroidViewModel(applicatio
     private val _mesesDisponibles = MutableStateFlow<List<Int>>(emptyList())
     val mesesDisponibles: StateFlow<List<Int>> get() = _mesesDisponibles
 
-    private val _areasDisponibles = MutableStateFlow<List<com.example.proyecto1.data.remote.dto.AreaFiltroDto>>(emptyList())
-    val areasDisponibles: StateFlow<List<com.example.proyecto1.data.remote.dto.AreaFiltroDto>> get() = _areasDisponibles
+    private val _areasDisponibles = MutableStateFlow<List<AreaFiltroDto>>(emptyList())
+    val areasDisponibles: StateFlow<List<AreaFiltroDto>> get() = _areasDisponibles
 
-    private val _tiposSlaDisponibles = MutableStateFlow<List<com.example.proyecto1.data.remote.dto.TipoSlaDto>>(emptyList())
-    val tiposSlaDisponibles: StateFlow<List<com.example.proyecto1.data.remote.dto.TipoSlaDto>> get() = _tiposSlaDisponibles
+    private val _tiposSlaDisponibles = MutableStateFlow<List<TipoSlaDto>>(emptyList())
+    val tiposSlaDisponibles: StateFlow<List<TipoSlaDto>> get() = _tiposSlaDisponibles
 
-    private val _periodosDisponibles = MutableStateFlow<List<com.example.proyecto1.data.remote.dto.PeriodoDto>>(emptyList())
-    val periodosDisponibles: StateFlow<List<com.example.proyecto1.data.remote.dto.PeriodoDto>> get() = _periodosDisponibles
+    private val _periodosDisponibles = MutableStateFlow<List<PeriodoDto>>(emptyList())
+    val periodosDisponibles: StateFlow<List<PeriodoDto>> get() = _periodosDisponibles
 
-    // Filtros actuales (para PDF)
     private var filtrosActuales = FiltrosReporte()
 
     init {
         cargarTodosFiltros()
     }
 
-    /**
-     * Carga todos los filtros disponibles desde la base de datos
-     */
     private fun cargarTodosFiltros() {
         viewModelScope.launch {
             cargarAniosDisponibles()
@@ -90,163 +91,79 @@ class TendenciaViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Carga los años disponibles desde la base de datos
-     */
     fun cargarAniosDisponibles() {
         viewModelScope.launch {
             try {
-                val anios = repository.obtenerAniosDisponibles()
-                _aniosDisponibles.value = anios
-                Log.d("TendenciaViewModel", "✅ Años disponibles: $anios")
-            } catch (e: Exception) {
-                Log.e("TendenciaViewModel", "❌ Error al cargar años", e)
-            }
+                _aniosDisponibles.value = repository.obtenerAniosDisponibles()
+            } catch (e: Exception) { Log.e("TendenciaViewModel", "❌ Error al cargar años", e) }
         }
     }
 
-    /**
-     * Carga los meses disponibles para un año específico
-     */
     fun cargarMesesDisponibles(anio: Int) {
         viewModelScope.launch {
             try {
-                val meses = repository.obtenerMesesDisponibles(anio)
-                _mesesDisponibles.value = meses
-                Log.d("TendenciaViewModel", "✅ Meses disponibles para $anio: $meses")
-            } catch (e: Exception) {
-                Log.e("TendenciaViewModel", "❌ Error al cargar meses", e)
-            }
+                _mesesDisponibles.value = repository.obtenerMesesDisponibles(anio)
+            } catch (e: Exception) { Log.e("TendenciaViewModel", "❌ Error al cargar meses", e) }
         }
     }
 
-    /**
-     * Carga las áreas disponibles desde la base de datos
-     */
     private fun cargarAreasDisponibles() {
         viewModelScope.launch {
             try {
-                val areas = repository.obtenerAreasDisponibles()
-                _areasDisponibles.value = areas
-                Log.d("TendenciaViewModel", "✅ Áreas disponibles: ${areas.size}")
-            } catch (e: Exception) {
-                Log.e("TendenciaViewModel", "❌ Error al cargar áreas", e)
-            }
+                _areasDisponibles.value = repository.obtenerAreasDisponibles()
+            } catch (e: Exception) { Log.e("TendenciaViewModel", "❌ Error al cargar áreas", e) }
         }
     }
 
-    /**
-     * Carga los tipos de SLA disponibles desde la configuración
-     */
     private fun cargarTiposSlaDisponibles() {
         viewModelScope.launch {
             try {
-                val tipos = repository.obtenerTiposSlaDisponibles()
-                _tiposSlaDisponibles.value = tipos
-                Log.d("TendenciaViewModel", "✅ Tipos SLA disponibles: ${tipos.map { it.codigo }}")
-            } catch (e: Exception) {
-                Log.e("TendenciaViewModel", "❌ Error al cargar tipos SLA", e)
-            }
+                _tiposSlaDisponibles.value = repository.obtenerTiposSlaDisponibles()
+            } catch (e: Exception) { Log.e("TendenciaViewModel", "❌ Error al cargar tipos SLA", e) }
         }
     }
 
-    /**
-     * Carga los períodos sugeridos basados en datos disponibles
-     */
     private fun cargarPeriodosDisponibles() {
         viewModelScope.launch {
             try {
-                val periodos = repository.obtenerPeriodosSugeridos()
-                _periodosDisponibles.value = periodos
-                Log.d("TendenciaViewModel", "✅ Períodos disponibles: ${periodos.size}")
-            } catch (e: Exception) {
-                Log.e("TendenciaViewModel", "❌ Error al cargar períodos", e)
-            }
+                _periodosDisponibles.value = repository.obtenerPeriodosSugeridos()
+            } catch (e: Exception) { Log.e("TendenciaViewModel", "❌ Error al cargar períodos", e) }
         }
     }
 
-    /**
-     * Carga datos crudos y CALCULA tendencia LOCALMENTE
-     */
-    fun cargarReporteTendencia(
-        mes: Int? = null,
-        anio: Int? = null,
-        tipoSla: String = "SLA1",
-        idArea: Int? = null
-    ) {
+    fun cargarReporteTendencia(mes: Int? = null, anio: Int? = null, tipoSla: String = "SLA1", idArea: Int? = null) {
         viewModelScope.launch {
-            try {
-                _cargando.value = true
-                _error.value = null
-
-                Log.d("TendenciaViewModel", "📊 Cargando datos crudos: año=$anio, tipo=$tipoSla")
-
-                // Guardar filtros
-                filtrosActuales = FiltrosReporte(mes, anio, tipoSla, idArea)
-
-                // 1. Obtener datos crudos del backend
-                val resultado = repository.obtenerDatosCrudos(
-                    anio = anio,
-                    tipoSla = tipoSla,
-                    idArea = idArea
-                )
-
-                resultado.fold(
-                    onSuccess = { datosDto ->
-                        Log.d("TendenciaViewModel", "📦 Datos recibidos: ${datosDto.totalMeses} meses")
-
-                        // 2. CALCULAR tendencia LOCALMENTE con TendenciaCalculator
-                        val calculator = com.example.proyecto1.utils.TendenciaCalculator()
-                        val calculado = calculator.calcularTendencia(datosDto.datosMensuales)
-
-                        if (calculado != null) {
-                            // 3. Actualizar estados con datos calculados EN LA APP
-                            _historico.value = calculado.historico
-                            _tendencia.value = calculado.lineaTendencia
-                            _proyeccion.value = calculado.proyeccion
-                            _pendiente.value = calculado.pendiente
-                            _intercepto.value = calculado.intercepto
-                            _estadoTendencia.value = calculado.estadoTendencia.name.lowercase()
-                            _totalRegistros.value = datosDto.totalSolicitudes
-
-                            // Actualizar timestamp
-                            val formato = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                            _ultimaActualizacion.value = formato.format(Date())
-
-                            Log.d("TendenciaViewModel", "✅ Tendencia calculada LOCALMENTE")
-                            Log.d("TendenciaViewModel", "📈 Proyección: ${calculado.proyeccion}%")
-                            Log.d("TendenciaViewModel", "📊 Tendencia: ${calculado.estadoTendencia}")
-                            Log.d("TendenciaViewModel", "📐 Regresión: y = ${calculado.pendiente}x + ${calculado.intercepto}")
-                        } else {
-                            _error.value = "Datos insuficientes (mínimo 3 meses necesarios)"
-                            Log.w("TendenciaViewModel", "⚠️ No se puede calcular tendencia con ${datosDto.totalMeses} meses")
-                        }
-                    },
-                    onFailure = { exception ->
-                        val mensajeError = when {
-                            exception.message?.contains("HTTP 400") == true ->
-                                "Parámetros inválidos. Verifica el tipo de SLA."
-                            exception.message?.contains("HTTP") == true ->
-                                "Error de conexión: ${exception.message}"
-                            else ->
-                                "Error al cargar datos: ${exception.message ?: "Desconocido"}"
-                        }
-                        _error.value = mensajeError
-                        Log.e("TendenciaViewModel", "❌ $mensajeError", exception)
+            _cargando.value = true
+            _error.value = null
+            filtrosActuales = FiltrosReporte(mes, anio, tipoSla, idArea)
+            
+            repository.obtenerDatosCrudos(anio = anio, tipoSla = tipoSla, idArea = idArea).fold(
+                onSuccess = {
+                    val calculator = TendenciaCalculator()
+                    val calculado = calculator.calcularTendencia(it.datosMensuales)
+                    if (calculado != null) {
+                        _historico.value = calculado.historico
+                        _tendencia.value = calculado.lineaTendencia
+                        _proyeccion.value = calculado.proyeccion
+                        _pendiente.value = calculado.pendiente
+                        _intercepto.value = calculado.intercepto
+                        _estadoTendencia.value = calculado.estadoTendencia.name.lowercase()
+                        _totalRegistros.value = it.totalSolicitudes
+                        val formato = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                        _ultimaActualizacion.value = formato.format(Date())
+                    } else {
+                        _error.value = "Datos insuficientes (mínimo 3 meses necesarios)"
                     }
-                )
-            } catch (e: Exception) {
-                _error.value = "Error inesperado: ${e.message}"
-                Log.e("TendenciaViewModel", "❌ Error inesperado", e)
-            } finally {
-                _cargando.value = false
-            }
+                },
+                onFailure = {
+                    _error.value = "Error al cargar datos: ${it.message}"
+                }
+            )
+            _cargando.value = false
         }
     }
-
-    /**
-     * Calcula KPIs derivados del histórico
-     */
+    
+    // ... (El resto de métodos como calcularKPIs, exportarPDF, etc. permanecen igual)
     fun calcularKPIs(): KPIsTendencia? {
         val datos = _historico.value
         if (datos.isEmpty()) return null
@@ -264,72 +181,28 @@ class TendenciaViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
-    /**
-     * Exporta el reporte a PDF
-     */
     fun exportarPDF() {
         viewModelScope.launch {
-            try {
-                Log.d("TendenciaViewModel", "📄 Exportando reporte a PDF...")
-
-                val kpis = calcularKPIs()
-                if (kpis == null) {
-                    _error.value = "No hay datos para exportar"
-                    return@launch
-                }
-
-                pdfExporter.exportar(
-                    historico = _historico.value,
-                    proyeccion = _proyeccion.value ?: 0.0,
-                    estadoTendencia = _estadoTendencia.value ?: "estable",
-                    kpis = kpis,
-                    filtros = filtrosActuales,
-                    context = getApplication<Application>()
-                )
-
-                Log.d("TendenciaViewModel", "✅ PDF exportado exitosamente")
-            } catch (e: Exception) {
-                _error.value = "Error al exportar PDF: ${e.message}"
-                Log.e("TendenciaViewModel", "❌ Error al exportar PDF", e)
+            val kpis = calcularKPIs()
+            if (kpis == null) {
+                _error.value = "No hay datos para exportar"
+                return@launch
             }
+            pdfExporter.exportar(historico.value, proyeccion.value ?: 0.0, estadoTendencia.value ?: "estable", kpis, filtrosActuales, application)
         }
     }
 
-    /**
-     * Comparte el reporte por WhatsApp, Email, etc.
-     */
     fun compartirReporte() {
         viewModelScope.launch {
-            try {
-                Log.d("TendenciaViewModel", "🔗 Compartiendo reporte...")
-
-                val kpis = calcularKPIs()
-                if (kpis == null) {
-                    _error.value = "No hay datos para compartir"
-                    return@launch
-                }
-
-                // Exportar PDF con opción de compartir
-                pdfExporter.exportar(
-                    historico = _historico.value,
-                    proyeccion = _proyeccion.value ?: 0.0,
-                    estadoTendencia = _estadoTendencia.value ?: "estable",
-                    kpis = kpis,
-                    filtros = filtrosActuales,
-                    context = getApplication<Application>(),
-                    compartir = true  // ✅ Activar modo compartir
-                )
-
-                Log.d("TendenciaViewModel", "✅ Reporte listo para compartir")
-            } catch (e: Exception) {
-                _error.value = "Error al compartir: ${e.message}"
-                Log.e("TendenciaViewModel", "❌ Error al compartir", e)
+            val kpis = calcularKPIs()
+            if (kpis == null) {
+                _error.value = "No hay datos para compartir"
+                return@launch
             }
+            pdfExporter.exportar(historico.value, proyeccion.value ?: 0.0, estadoTendencia.value ?: "estable", kpis, filtrosActuales, application, compartir = true)
         }
     }
 }
-
-// ===== MODELOS DE DATOS =====
 
 data class KPIsTendencia(
     val mejorMes: String,
@@ -345,4 +218,3 @@ data class FiltrosReporte(
     val tipoSla: String = "SLA1",
     val idArea: Int? = null
 )
-

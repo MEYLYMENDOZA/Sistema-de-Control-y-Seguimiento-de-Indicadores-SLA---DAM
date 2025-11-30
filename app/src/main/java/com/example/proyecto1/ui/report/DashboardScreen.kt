@@ -1,6 +1,5 @@
 package com.example.proyecto1.ui.report
 
-import android.app.Application
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,30 +17,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel // <-- AÑADIDO
 import androidx.navigation.NavController
-import com.example.proyecto1.data.repository.SlaRepository
+// import com.example.proyecto1.data.repository.SlaRepository // <-- ELIMINADO
 import com.example.proyecto1.ui.theme.Black
 import com.example.proyecto1.ui.theme.GreenProgress
 import com.example.proyecto1.ui.theme.RedProgress
 import com.example.proyecto1.ui.theme.White
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     navController: NavController, 
     openDrawer: () -> Unit,
-    reportViewModel: ReportViewModel = viewModel(
-        factory = ReportViewModelFactory(LocalContext.current.applicationContext as Application, SlaRepository())
-    )
+    reportViewModel: ReportViewModel = hiltViewModel() // <-- CORREGIDO
 ) {
     val uiState by reportViewModel.uiState.collectAsState()
     val exportState by reportViewModel.exportState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
-    // Efecto para manejar el resultado de la exportación
     LaunchedEffect(exportState) {
         when (val state = exportState) {
             is ExportState.Success -> {
@@ -111,6 +105,7 @@ fun DashboardScreen(
     }
 }
 
+// El resto de los composables de la UI no necesitan cambios.
 @Composable
 fun ReportContent(
     paddingValues: PaddingValues, 

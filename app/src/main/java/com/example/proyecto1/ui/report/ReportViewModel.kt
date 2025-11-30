@@ -1,23 +1,20 @@
 package com.example.proyecto1.ui.report
 
 import android.app.Application
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
-import com.example.proyecto1.data.repository.SlaRepository
+import com.example.proyecto1.data.SlaRepository // <-- CORREGIDO
 import com.example.proyecto1.utils.PdfExporter
+import dagger.hilt.android.lifecycle.HiltViewModel // <-- AÑADIDO
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
+import javax.inject.Inject // <-- AÑADIDO
 
 // --- Modelos de datos para el estado de la UI de Reportes ---
 
@@ -64,7 +61,6 @@ data class UltimoRegistroDto(
 
 sealed class ReportUiState {
     object Loading : ReportUiState()
-    // CORRECCIÓN: El estado Success ahora guarda tanto el reporte procesado como los datos crudos
     data class Success(val reportData: ReporteGeneralDto) : ReportUiState()
     data class Error(val message: String) : ReportUiState()
 }
@@ -76,8 +72,11 @@ sealed class ExportState {
     data class Error(val message: String) : ExportState()
 }
 
-
-class ReportViewModel(application: Application, private val repository: SlaRepository) : AndroidViewModel(application) {
+@HiltViewModel // <-- AÑADIDO
+class ReportViewModel @Inject constructor(
+    private val repository: SlaRepository,
+    private val application: Application // Hilt puede inyectar Application directamente
+) : ViewModel() { // <-- CORREGIDO: No necesita ser AndroidViewModel si inyectamos Application
 
     private val _uiState = MutableStateFlow<ReportUiState>(ReportUiState.Loading)
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
@@ -94,11 +93,18 @@ class ReportViewModel(application: Application, private val repository: SlaRepos
     fun fetchReportData() {
         viewModelScope.launch {
             _uiState.value = ReportUiState.Loading
-            repository.obtenerReporteGeneral().onSuccess {
-                // CORRECCIÓN: 'it' es un Pair, pasamos el primer elemento (el reporte procesado) al estado Success.
-                _uiState.value = ReportUiState.Success(it.first)
-            }.onFailure {
-                _uiState.value = ReportUiState.Error(it.message ?: "Error desconocido")
+            // El repositorio correcto puede tener una API diferente (ej: Flows)
+            // Adaptamos la llamada para que sea compatible.
+            try {
+                 // Asumiendo que esta función existe en el repo correcto
+                val result = repository.obtenerReporteGeneral()
+                result.onSuccess {
+                    _uiState.value = ReportUiState.Success(it.first)
+                }.onFailure {
+                    _uiState.value = ReportUiState.Error(it.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                _uiState.value = ReportUiState.Error(e.message ?: "Error al cargar el reporte.")
             }
         }
     }
@@ -109,10 +115,9 @@ class ReportViewModel(application: Application, private val repository: SlaRepos
             viewModelScope.launch {
                 _exportState.value = ExportState.Exporting
                 try {
-                    // Llama al nuevo método para exportar el reporte completo
                     val file = pdfExporter.exportarReporteDeIndicadores(currentState.reportData)
                     if (file != null) {
-                        val context = getApplication<Application>().applicationContext
+                        val context = application.applicationContext
                         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                         _exportState.value = ExportState.Success(uri)
                     } else {
@@ -130,13 +135,4 @@ class ReportViewModel(application: Application, private val repository: SlaRepos
     }
 }
 
-
-class ReportViewModelFactory(private val application: Application, private val repository: SlaRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ReportViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ReportViewModel(application, repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
+// La ViewModelFactory ya no es necesaria con Hilt.

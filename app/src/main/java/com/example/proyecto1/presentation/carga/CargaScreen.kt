@@ -18,8 +18,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
@@ -56,10 +56,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.proyecto1.data.SlaRepository
-import com.example.proyecto1.network.SlaApiService
-import com.example.proyecto1.network.dto.SolicitudReporteDTO
-import com.example.proyecto1.network.dto.SolicitudUpdateDTO
+import com.example.proyecto1.data.remote.api.SlaApiService
+import com.example.proyecto1.data.remote.dto.AreaFiltroDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
+import com.example.proyecto1.data.remote.dto.PeriodoDto
+import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
+import com.example.proyecto1.data.remote.dto.TendenciaDatosDto
+import com.example.proyecto1.data.remote.dto.TipoSlaDto
 import retrofit2.Response
+import java.util.Locale
 
 // Las data classes se han movido a CargaState.kt
 
@@ -189,10 +195,10 @@ fun CargaExcelSection(viewModel: CargaViewModel, onDownloadTemplate: () -> Unit,
 @Composable
 fun SummarySection(data: CargaSummaryData) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        SummaryCard("Total Registros", data.total.toString(), Icons.Default.Article, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
+        SummaryCard("Total Registros", data.total.toString(), Icons.AutoMirrored.Filled.Article, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
         SummaryCard("Cumplen", data.cumplen.toString(), Icons.Default.CheckCircle, Color(0xFF66BB6A), modifier = Modifier.weight(1f))
         SummaryCard("No Cumplen", data.noCumplen.toString(), Icons.Default.Cancel, Color(0xFFEF5350), modifier = Modifier.weight(1f))
-        SummaryCard("% Cumplimiento", String.format("%.1f%%", data.cumplimiento), Icons.Default.Analytics, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
+        SummaryCard("% Cumplimiento", String.format(Locale.getDefault(), "%.1f%%", data.cumplimiento), Icons.Default.Analytics, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
     }
 }
 
@@ -231,7 +237,7 @@ fun DataTableRow(item: CargaItemData) {
             Text(item.codigo, modifier = Modifier.weight(1.5f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(item.rol, modifier = Modifier.weight(1.5f), fontSize = 14.sp)
             Text(item.tipoSla, modifier = Modifier.weight(1f), fontSize = 14.sp)
-            Text(String.format("%.1f%%", item.cumplimiento), modifier = Modifier.weight(1.5f), fontSize = 14.sp)
+            Text(String.format(Locale.getDefault(), "%.1f%%", item.cumplimiento), modifier = Modifier.weight(1.5f), fontSize = 14.sp)
             // **LÓGICA DE LA PÍLDORA ACTUALIZADA**
             Pill(text = "${item.diasTranscurridos} días", color = if (item.estado == "Cumple") Color(0xFFE8F5E9) else Color(0xFFFFEBEE), textColor = if (item.estado == "Cumple") Color(0xFF2E7D32) else Color(0xFFC62828), modifier = Modifier.weight(1.5f))
             Text("${item.cantidadPorRol} personas", modifier = Modifier.weight(1.5f), fontSize = 14.sp)
@@ -265,6 +271,49 @@ fun CargaScreenPreview() {
 
 // Helper class for Previews
 private class FakeSlaApiService : SlaApiService {
-    override suspend fun getSolicitudes(meses: Int?, anio: Int?, idArea: Int?): List<SolicitudReporteDTO> = emptyList()
-    override suspend fun updateSolicitud(body: SolicitudUpdateDTO): Response<Unit> = Response.success(Unit)
+    override suspend fun obtenerSolicitudes(
+        meses: Int?,
+        anio: Int?,
+        mes: Int?,
+        idArea: Int?
+    ): Response<List<SolicitudReporteDto>> {
+        return Response.success(emptyList())
+    }
+
+    override suspend fun obtenerSolicitudesTendencia(
+        anio: Int?,
+        tipoSla: String,
+        idArea: Int?
+    ): Response<TendenciaDatosDto> {
+        // Devolver una respuesta exitosa con datos vacíos o de ejemplo
+        return Response.success(TendenciaDatosDto(tipoSla = "", diasUmbral = 0, fechaInicio = "", fechaFin = "", totalSolicitudes = 0, totalMeses = 0, datosMensuales = emptyList()))
+    }
+
+    override suspend fun obtenerAniosDisponibles(): Response<List<Int>> {
+        return Response.success(listOf(2023, 2024))
+    }
+
+    override suspend fun obtenerMesesDisponibles(anio: Int): Response<List<Int>> {
+        return Response.success((1..12).toList())
+    }
+
+    override suspend fun obtenerAreasDisponibles(): Response<List<AreaFiltroDto>> {
+        return Response.success(emptyList())
+    }
+
+    override suspend fun obtenerTiposSlaDisponibles(): Response<List<TipoSlaDto>> {
+        return Response.success(emptyList())
+    }
+
+    override suspend fun obtenerPeriodosSugeridos(): Response<List<PeriodoDto>> {
+        return Response.success(emptyList())
+    }
+
+    override suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>> {
+        return Response.success(emptyList())
+    }
+
+    override suspend fun updateConfigSla(configs: List<ConfigSlaUpdateDto>): Response<Unit> {
+        return Response.success(Unit)
+    }
 }

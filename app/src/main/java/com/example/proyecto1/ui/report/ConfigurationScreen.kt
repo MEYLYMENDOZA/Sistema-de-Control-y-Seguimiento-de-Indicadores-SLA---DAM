@@ -20,19 +20,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel // <-- AÑADIDO
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
-import com.example.proyecto1.data.repository.SlaRepository
+// import com.example.proyecto1.data.repository.SlaRepository // <-- ELIMINADO
 import com.example.proyecto1.ui.theme.Black
 import com.example.proyecto1.ui.theme.White
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigurationScreen(
     openDrawer: () -> Unit,
-    viewModel: ConfigurationViewModel = viewModel(factory = ConfigurationViewModelFactory(SlaRepository()))
+    viewModel: ConfigurationViewModel = hiltViewModel() // <-- CORREGIDO
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val saveStatus by viewModel.saveStatus.collectAsState()

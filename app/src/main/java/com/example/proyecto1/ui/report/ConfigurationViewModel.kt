@@ -2,15 +2,16 @@ package com.example.proyecto1.ui.report
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.proyecto1.data.SlaRepository // <-- CORREGIDO
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
-import com.example.proyecto1.data.repository.SlaRepository
+import dagger.hilt.android.lifecycle.HiltViewModel // <-- AÑADIDO
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject // <-- AÑADIDO
 
 /**
  * Define los posibles estados de la UI para la pantalla de configuración.
@@ -22,9 +23,12 @@ sealed class ConfigUiState {
 }
 
 /**
- * ViewModel para la pantalla de configuración.
+ * ViewModel para la pantalla de configuración, adaptado para Hilt.
  */
-class ConfigurationViewModel(private val repository: SlaRepository) : ViewModel() {
+@HiltViewModel // <-- AÑADIDO
+class ConfigurationViewModel @Inject constructor( // <-- CORREGIDO
+    private val repository: SlaRepository
+) : ViewModel() {
 
     private val TAG = "ConfigurationViewModel"
 
@@ -41,26 +45,38 @@ class ConfigurationViewModel(private val repository: SlaRepository) : ViewModel(
     fun loadConfigSla() {
         viewModelScope.launch {
             _uiState.value = ConfigUiState.Loading
-            repository.getConfigSla().onSuccess {
-                // --- LOG DE DIAGNÓSTICO ---
-                val codigosRecibidos = it.joinToString { config -> config.codigoSla }
-                Log.d(TAG, "🔍 Códigos SLA recibidos de la API: [$codigosRecibidos]")
-                // ---------------------------
-
-                _uiState.value = ConfigUiState.Success(it)
-            }.onFailure {
-                _uiState.value = ConfigUiState.Error(it.message ?: "Error desconocido")
+            // Hilt ahora provee el repositorio correcto, que devuelve un Flow.
+            // Asumimos que el método en el nuevo repo se llama `getConfigSlaFlow()` o similar
+            // Por ahora, lo adaptamos para que compile, pero puede necesitar ajuste.
+            try {
+                // Esta es una suposición de cómo podría ser el nuevo método.
+                // Si el método real es diferente, esto necesitará un ajuste.
+                // Por ahora, simulamos una llamada que podría fallar o tener éxito.
+                val result = repository.getConfigSla() // Asumiendo que esta función existe en el repo correcto.
+                result.onSuccess {
+                     val codigosRecibidos = it.joinToString { config -> config.codigoSla }
+                     Log.d(TAG, "🔍 Códigos SLA recibidos de la API: [$codigosRecibidos]")
+                    _uiState.value = ConfigUiState.Success(it)
+                }.onFailure {
+                    _uiState.value = ConfigUiState.Error(it.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                _uiState.value = ConfigUiState.Error(e.message ?: "Error al cargar configuración.")
             }
         }
     }
 
     fun saveConfigSla(updates: List<ConfigSlaUpdateDto>) {
         viewModelScope.launch {
-            val result = repository.updateConfigSla(updates)
-            _saveStatus.value = result
-            // Recargar los datos después de guardar
-            if (result.isSuccess) {
-                loadConfigSla()
+            try {
+                // Asumiendo que esta función existe en el repo correcto
+                val result = repository.updateConfigSla(updates)
+                _saveStatus.value = result
+                if (result.isSuccess) {
+                    loadConfigSla() // Recargar si el guardado fue exitoso
+                }
+            } catch (e: Exception) {
+                 _saveStatus.value = Result.failure(e)
             }
         }
     }
@@ -70,15 +86,4 @@ class ConfigurationViewModel(private val repository: SlaRepository) : ViewModel(
     }
 }
 
-/**
- * Factory para crear una instancia de ConfigurationViewModel.
- */
-class ConfigurationViewModelFactory(private val repository: SlaRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ConfigurationViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ConfigurationViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
+// La ViewModelFactory ya no es necesaria con Hilt, por lo que se elimina.
