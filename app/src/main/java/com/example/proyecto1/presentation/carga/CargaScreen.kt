@@ -1,49 +1,19 @@
 package com.example.proyecto1.presentation.carga
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,17 +27,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.proyecto1.data.SlaRepository
 import com.example.proyecto1.data.remote.api.SlaApiService
-import com.example.proyecto1.data.remote.dto.AreaFiltroDto
-import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
-import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
-import com.example.proyecto1.data.remote.dto.PeriodoDto
-import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
-import com.example.proyecto1.data.remote.dto.TendenciaDatosDto
-import com.example.proyecto1.data.remote.dto.TipoSlaDto
+import com.example.proyecto1.data.remote.dto.*
 import retrofit2.Response
 import java.util.Locale
-
-// Las data classes se han movido a CargaState.kt
 
 @Composable
 fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
@@ -106,9 +68,11 @@ fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
         ) {
             item { 
                 CargaExcelSection(
-                    viewModel = cargaViewModel,
+                    uiState = uiState,
                     onDownloadTemplate = { cargaViewModel.downloadTemplate(context) },
-                    onSelectFile = { filePickerLauncher.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") }
+                    onSelectFile = { filePickerLauncher.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") },
+                    onProcessFile = { cargaViewModel.procesarArchivoSeleccionado(context) },
+                    onClear = { cargaViewModel.clearData() }
                 )
              }
 
@@ -124,12 +88,12 @@ fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
                 item { SummarySection(data = summary) }
                 item {
                     Text(
-                        text = "Datos Cargados",
+                        text = "Datos Cargados para Revisión",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(bottom = 4.dp, top = 16.dp)
                     )
                     Text(
-                        text = "Resumen de ${summary.total} registros procesados",
+                        text = "Resumen de ${summary.total} registros procesados. Vaya a Gestión para editar y subir.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray
                     )
@@ -152,11 +116,17 @@ fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun CargaExcelSection(viewModel: CargaViewModel, onDownloadTemplate: () -> Unit, onSelectFile: () -> Unit) {
+fun CargaExcelSection(
+    uiState: CargaUiState,
+    onDownloadTemplate: () -> Unit, 
+    onSelectFile: () -> Unit,
+    onProcessFile: () -> Unit,
+    onClear: () -> Unit
+) {
     Card(elevation = CardDefaults.cardElevation(0.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Cargar Archivo Excel", style = MaterialTheme.typography.titleMedium)
-            Text("Sube un archivo (.xlsx o .csv) con los indicadores SLA.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text("Sube un archivo (.xlsx o .csv) para pasarlo a la sección de Gestión.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             Spacer(Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -170,11 +140,31 @@ fun CargaExcelSection(viewModel: CargaViewModel, onDownloadTemplate: () -> Unit,
                     Spacer(Modifier.width(8.dp))
                     Text("Plantilla")
                 }
-                Button(onClick = { viewModel.clearData() }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Text("Limpiar")
+            }
+            
+            AnimatedVisibility(visible = uiState.selectedFileUri != null) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    Text("Archivo seleccionado:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Text(uiState.selectedFileName ?: "", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)){
+                        Button(
+                            onClick = onProcessFile, 
+                            enabled = !uiState.isLoading, 
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Procesar para Gestión")
+                        }
+                        Button(onClick = onClear, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))) {
+                            Icon(Icons.Default.Delete, contentDescription = null)
+                            Text("Limpiar")
+                        }
+                    }
                 }
             }
+            
             Spacer(Modifier.height(16.dp))
             Text("Formato esperado del archivo Excel:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
             Text("Columnas Requeridas:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
@@ -191,6 +181,8 @@ fun CargaExcelSection(viewModel: CargaViewModel, onDownloadTemplate: () -> Unit,
         }
     }
 }
+
+// El resto de la UI (SummarySection, DataTableRow, etc.) permanece igual.
 
 @Composable
 fun SummarySection(data: CargaSummaryData) {
@@ -223,7 +215,6 @@ fun DataTableHeader() {
         Text("Rol", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         Text("Tipo SLA", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         Text("% Cumplimiento", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-        // **CABECERA ACTUALIZADA**
         Text("Días Transcurridos", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         Text("Cantidad por Rol", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
         Text("Estado", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
@@ -238,7 +229,6 @@ fun DataTableRow(item: CargaItemData) {
             Text(item.rol, modifier = Modifier.weight(1.5f), fontSize = 14.sp)
             Text(item.tipoSla, modifier = Modifier.weight(1f), fontSize = 14.sp)
             Text(String.format(Locale.getDefault(), "%.1f%%", item.cumplimiento), modifier = Modifier.weight(1.5f), fontSize = 14.sp)
-            // **LÓGICA DE LA PÍLDORA ACTUALIZADA**
             Pill(text = "${item.diasTranscurridos} días", color = if (item.estado == "Cumple") Color(0xFFE8F5E9) else Color(0xFFFFEBEE), textColor = if (item.estado == "Cumple") Color(0xFF2E7D32) else Color(0xFFC62828), modifier = Modifier.weight(1.5f))
             Text("${item.cantidadPorRol} personas", modifier = Modifier.weight(1.5f), fontSize = 14.sp)
             Pill(text = item.estado, color = if (item.estado == "Cumple") Color(0xFFE8F5E9) else Color(0xFFFFEBEE), textColor = if (item.estado == "Cumple") Color(0xFF2E7D32) else Color(0xFFC62828), modifier = Modifier.weight(1f))
@@ -256,10 +246,11 @@ fun Pill(text: String, color: Color, textColor: Color, modifier: Modifier = Modi
 @Preview(showBackground = true, backgroundColor = 0xFFF0F2F5)
 @Composable
 fun CargaScreenPreview() {
-    // For previews, we must manually create dependencies as Hilt is not used.
     val fakeViewModel = CargaViewModel(SlaRepository(FakeSlaApiService()))
     fakeViewModel.setUiStateForPreview(
         CargaUiState(
+            selectedFileName = "datos_ejemplo.xlsx",
+            selectedFileUri = Uri.EMPTY,
             summary = CargaSummaryData(150, 120, 30, 80.0f),
             items = listOf(
                 CargaItemData("SOL-001", "Desarrollador", "SLA1", 95.5f, 10, 5, "Cumple", fechaSolicitud = "01/01/2025", fechaIngreso = "11/01/2025")
@@ -271,6 +262,10 @@ fun CargaScreenPreview() {
 
 // Helper class for Previews
 private class FakeSlaApiService : SlaApiService {
+    override suspend fun subirSolicitudes(solicitudes: List<CargaItemData>): Response<Unit> {
+        return Response.success(Unit)
+    }
+
     override suspend fun obtenerSolicitudes(
         meses: Int?,
         anio: Int?,
@@ -285,7 +280,6 @@ private class FakeSlaApiService : SlaApiService {
         tipoSla: String,
         idArea: Int?
     ): Response<TendenciaDatosDto> {
-        // Devolver una respuesta exitosa con datos vacíos o de ejemplo
         return Response.success(TendenciaDatosDto(tipoSla = "", diasUmbral = 0, fechaInicio = "", fechaFin = "", totalSolicitudes = 0, totalMeses = 0, datosMensuales = emptyList()))
     }
 
@@ -305,8 +299,8 @@ private class FakeSlaApiService : SlaApiService {
         return Response.success(emptyList())
     }
 
-    override suspend fun obtenerPeriodosSugeridos(): Response<List<PeriodoDto>> {
-        return Response.success(emptyList())
+    override suspend fun obtenerPeriodosSugeridos(): Response<List<Int>> {
+        return Response.success(emptyList<Int>())
     }
 
     override suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>> {

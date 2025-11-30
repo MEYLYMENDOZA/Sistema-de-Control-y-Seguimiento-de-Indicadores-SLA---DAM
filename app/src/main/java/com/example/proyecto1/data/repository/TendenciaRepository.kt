@@ -3,7 +3,6 @@ package com.example.proyecto1.data.repository
 import android.util.Log
 import com.example.proyecto1.data.remote.api.SlaApiService
 import com.example.proyecto1.data.remote.dto.AreaFiltroDto
-import com.example.proyecto1.data.remote.dto.PeriodoDto
 import com.example.proyecto1.data.remote.dto.TendenciaDatosDto
 import com.example.proyecto1.data.remote.dto.TipoSlaDto
 import javax.inject.Inject
@@ -75,7 +74,7 @@ class TendenciaRepository @Inject constructor(private val apiService: SlaApiServ
         }
     }
 
-    suspend fun obtenerPeriodosSugeridos(): List<PeriodoDto> {
+    suspend fun obtenerPeriodosSugeridos(): List<Int> { // <-- CAMBIO IMPORTANTE: PeriodoDto a Int
         return try {
             val response = apiService.obtenerPeriodosSugeridos()
             if (response.isSuccessful && response.body() != null) response.body()!! else emptyList()

@@ -53,6 +53,21 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         }
     }
 
+    suspend fun subirSolicitudes(solicitudes: List<CargaItemData>): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.subirSolicitudes(solicitudes)
+                if (response.isSuccessful) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Error al subir datos: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
     fun replaceItemsWith(localItems: List<CargaItemData>) {
         _slaItems.update { localItems }
     }

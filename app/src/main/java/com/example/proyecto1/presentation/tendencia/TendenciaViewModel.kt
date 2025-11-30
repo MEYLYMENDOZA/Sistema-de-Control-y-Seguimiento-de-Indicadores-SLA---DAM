@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto1.data.remote.dto.AreaFiltroDto
-import com.example.proyecto1.data.remote.dto.PeriodoDto
 import com.example.proyecto1.data.remote.dto.PuntoHistoricoDto
 import com.example.proyecto1.data.remote.dto.PuntoTendenciaDto
 import com.example.proyecto1.data.remote.dto.TipoSlaDto
@@ -73,8 +72,8 @@ class TendenciaViewModel @Inject constructor(
     private val _tiposSlaDisponibles = MutableStateFlow<List<TipoSlaDto>>(emptyList())
     val tiposSlaDisponibles: StateFlow<List<TipoSlaDto>> get() = _tiposSlaDisponibles
 
-    private val _periodosDisponibles = MutableStateFlow<List<PeriodoDto>>(emptyList())
-    val periodosDisponibles: StateFlow<List<PeriodoDto>> get() = _periodosDisponibles
+    private val _periodosDisponibles = MutableStateFlow<List<Int>>(emptyList()) // <-- CAMBIO IMPORTANTE: PeriodoDto a Int
+    val periodosDisponibles: StateFlow<List<Int>> get() = _periodosDisponibles
 
     private var filtrosActuales = FiltrosReporte()
 

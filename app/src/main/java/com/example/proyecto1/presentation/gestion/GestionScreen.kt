@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
@@ -28,19 +30,18 @@ import com.example.proyecto1.presentation.carga.CargaItemData
 @Composable
 fun GestionScreen(vm: GestionViewModel = hiltViewModel()) {
     val uiState by vm.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // -- DIÁLOGO DE ERROR --
-    if (uiState.errorMessage != null) {
-        AlertDialog(
-            onDismissRequest = { vm.dismissError() },
-            title = { Text("Error") },
-            text = { Text(uiState.errorMessage!!) },
-            confirmButton = {
-                Button(onClick = { vm.dismissError() }) {
-                    Text("OK")
-                }
-            }
-        )
+    // -- Snackbar para mensajes de éxito y error --
+    LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
+        uiState.successMessage?.let {
+            snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+            vm.dismissError() // Limpia el mensaje
+        }
+        uiState.errorMessage?.let {
+            snackbarHostState.showSnackbar("Error: $it")
+            vm.dismissError() // Limpia el mensaje
+        }
     }
     
     // -- DIÁLOGO DE EDICIÓN --
@@ -48,33 +49,60 @@ fun GestionScreen(vm: GestionViewModel = hiltViewModel()) {
         EditRecordDialog(uiState = uiState, vm = vm)
     }
 
-    // -- CONTENIDO PRINCIPAL --
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF2F2F7))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item { Header(totalRegistros = uiState.allItems.size) }
-        item { SearchAndFilter(uiState, vm) }
-        
-        item {
-            Row(modifier=Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically){
-                Text("Registros SLA", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                 TextButton(onClick = { vm.onToggleAllSelected(true) }) {
-                    Text("Seleccionar todos")
-                }
+    // -- CONTENIDO PRINCIPAL CON SCAFFOLD Y BOTÓN FLOTANTE --
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        floatingActionButton = {
+            if (uiState.allItems.isNotEmpty()) { // El botón solo existe si hay datos
+                ExtendedFloatingActionButton(
+                    onClick = { vm.subirDatosAGuardar() },
+                    expanded = !uiState.isLoading,
+                    icon = { Icon(Icons.Filled.CloudUpload, "Subir Datos") },
+                    text = { Text(text = "Subir datos") },
+                )
             }
         }
-
-        if (uiState.isLoading) {
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF2F2F7))
+                .padding(it)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            item { Header() }
+            item { SearchAndFilter(uiState, vm) }
+            
             item {
-                Box(modifier = Modifier.fillMaxWidth().padding(vertical=32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                Row(modifier=Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically){
+                    Text("Registros SLA", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                     TextButton(onClick = { vm.onToggleAllSelected(true) }) {
+                        Text("Seleccionar todos")
+                    }
                 }
             }
-        } else {
+
+            if (uiState.isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical=32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+            
+            if (!uiState.isLoading && uiState.allItems.isEmpty()) {
+                 item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                             Text("No hay datos para gestionar.", color = Color.Gray, style = MaterialTheme.typography.titleMedium)
+                             Text("Vaya a la pantalla de Carga para procesar un nuevo archivo.", color = Color.Gray)
+                        }
+                    }
+                }
+            }
+
             items(uiState.displayedItems, key = { it.codigo }) { item ->
                 SlaRecordCard(item = item, isSelected = item.codigo in uiState.selectedItemCodes, onToggleSelect = { vm.onToggleItemSelected(item.codigo, it) }, onEdit = { vm.onEditItem(item) })
             }
@@ -83,10 +111,10 @@ fun GestionScreen(vm: GestionViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun Header(totalRegistros: Int) {
+fun Header() {
     Column {
         Text("Gestión de Datos", style = MaterialTheme.typography.headlineSmall)
-        Text("Visualiza, edita y elimina registros SLA. Total: $totalRegistros registros", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+        Text("Visualiza, edita y sube los registros a la base de datos.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
     }
 }
 
@@ -94,20 +122,27 @@ fun Header(totalRegistros: Int) {
 @Composable
 fun SearchAndFilter(uiState: GestionUiState, vm: GestionViewModel) {
      Card(colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(0.dp), shape = RoundedCornerShape(12.dp)) {
-         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)){
+         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)){
              OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = { vm.onSearchQueryChanged(it) },
                 label = { Text("Buscar por código, rol o tipo SLA...") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically){
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically){
-                     SummaryChip("Total: ${uiState.allItems.size}", Icons.Default.Info)
-                     SummaryChip("Cumplen: ${uiState.allItems.count { it.estado == "Cumple" }}", Icons.Default.CheckCircle, containerColor = Color(0xFFE8F5E9), contentColor = Color(0xFF388E3C))
-                     SummaryChip("No Cumplen: ${uiState.allItems.count { it.estado != "Cumple" }}", Icons.Default.Error, containerColor = Color(0xFFFFEBEE), contentColor = Color(0xFFD32F2F))
-                }
-                 Button(onClick = { vm.deleteSelectedItems() }, enabled = uiState.selectedItemCodes.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically){
+                SummaryChip("Total: ${uiState.allItems.size}", Icons.Default.Info)
+                SummaryChip("Cumplen: ${uiState.allItems.count { it.estado == "Cumple" }}", Icons.Default.CheckCircle, containerColor = Color(0xFFE8F5E9), contentColor = Color(0xFF388E3C))
+                SummaryChip("No Cumplen: ${uiState.allItems.count { it.estado != "Cumple" }}", Icons.Default.Error, containerColor = Color(0xFFFFEBEE), contentColor = Color(0xFFD32F2F))
+            }
+            // --- BOTÓN DE ELIMINAR ---
+             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End){
+                 Button(
+                    onClick = { vm.deleteSelectedItems() }, 
+                    enabled = uiState.selectedItemCodes.isNotEmpty() && !uiState.isLoading, 
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                 ) {
+                    Icon(Icons.Default.Delete, contentDescription=null)
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text("Eliminar (${uiState.selectedItemCodes.size})")
                 }
             }

@@ -24,6 +24,7 @@ data class GestionUiState(
     val selectedItemCodes: Set<String> = emptySet(),
     val itemToEdit: CargaItemData? = null,
     val errorMessage: String? = null,
+    val successMessage: String? = null, // Para mensajes de éxito
     // Estado para el diálogo de edición
     val editedRol: String = "",
     val editedFechaSolicitud: String = "",
@@ -50,8 +51,26 @@ class GestionViewModel @Inject constructor(
                 }
             }
         }
-        // YA NO CARGAMOS DATOS DESDE LA API AL INICIAR
-        // loadInitialData()
+    }
+
+    // --- FUNCIÓN NUEVA PARA SUBIR DATOS ---
+    fun subirDatosAGuardar() {
+        val itemsToSave = _uiState.value.allItems
+        if (itemsToSave.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "No hay datos para subir.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            slaRepository.subirSolicitudes(itemsToSave).onSuccess {
+                _uiState.update { it.copy(isLoading = false, successMessage = "¡${itemsToSave.size} registros guardados con éxito en la base de datos!") }
+                // Opcional: Limpiar la lista después de guardar
+                slaRepository.clearAll()
+            }.onFailure { error ->
+                _uiState.update { it.copy(isLoading = false, errorMessage = error.message) }
+            }
+        }
     }
 
     private fun filterItems(items: List<CargaItemData>, query: String): List<CargaItemData> {
@@ -152,6 +171,6 @@ class GestionViewModel @Inject constructor(
     }
     
     fun dismissError() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
 }
