@@ -43,8 +43,16 @@ import com.example.proyecto1.features.notifications.presentation.email_notificat
 
 // --- IMPORTS DEL EQUIPO ---
 import com.example.proyecto1.ui.login.LoginScreen
+import com.example.proyecto1.ui.report.ConfigurationScreen
+import com.example.proyecto1.ui.report.DashboardScreen
 import com.example.proyecto1.presentation.prediccion.PrediccionScreen
 import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
+import com.example.proyecto1.presentation.tendencia.TendenciaScreen
+import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+
 
 // DataStore delegate
 private val Context.dataStore by preferencesDataStore(name = "user_prefs")
@@ -67,6 +75,7 @@ sealed class Screen(val route: String, val label: String) {
     object Usuarios : Screen("usuarios", "Usuarios")
     object Carga : Screen("carga", "Carga")
     object Prediccion : Screen("prediccion", "Predicción")
+    object Tendencia : Screen("tendencia", "Tendencia")
     object Configuracion : Screen("configuracion", "Configuración")
 }
 
@@ -159,10 +168,11 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                 Screen.AlertasHistorial.route -> "Historial de Alertas"
                 Screen.NotificacionesEmail.route -> "Notificaciones Email"
                 Screen.Dashboard.route -> "Dashboard"
-                Screen.Reportes.route -> "Reportes"
+                Screen.Reportes.route -> "Reportes" // El título lo gestiona DashboardScreen
                 Screen.Usuarios.route -> "Usuarios"
                 Screen.Carga.route -> "Carga de Datos"
                 Screen.Prediccion.route -> "Predicción SLA"
+                Screen.Tendencia.route -> "Tendencia y Proyección SLA"
                 Screen.Configuracion.route -> "Configuración"
                 else -> "SLA Tracker"
             }
@@ -244,14 +254,29 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
 
                     // --- PANTALLAS DE TUS COMPAÑEROS ---
                     composable(Screen.Dashboard.route) { DashboardPlaceholder() }
-                    composable(Screen.Reportes.route) { ReportesPlaceholder() }
+                    composable(Screen.Reportes.route) {
+                        DashboardScreen(
+                            navController = modulesNavController,
+                            openDrawer = { scope.launch { drawerState.open() } }
+                        )
+                    }
                     composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
                     composable(Screen.Carga.route) { CargaPlaceholder() }
                     composable(Screen.Prediccion.route) {
                         val prediccionViewModel: PrediccionViewModel = viewModel()
                         PrediccionScreen(vm = prediccionViewModel)
                     }
+
+                    composable(Screen.Tendencia.route) {
+                        val tendenciaViewModel: TendenciaViewModel = viewModel()
+                        TendenciaScreen(vm = tendenciaViewModel)
+                    }
                     composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
+
+                    composable(Screen.Configuracion.route) {
+                        ConfigurationScreen(openDrawer = { scope.launch { drawerState.open() } })
+                    }
+
                 }
             }
         }
@@ -306,6 +331,13 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
         Text(
             text = "Predicción",
             modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Prediccion.route) }
+        )
+
+        Text(
+            text = "Tendencia",
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .clickable { onNavigateTo(Screen.Tendencia.route) }
         )
 
         Text(

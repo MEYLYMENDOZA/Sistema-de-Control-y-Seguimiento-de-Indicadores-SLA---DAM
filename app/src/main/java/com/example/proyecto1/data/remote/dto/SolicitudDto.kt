@@ -2,109 +2,48 @@ package com.example.proyecto1.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
-data class SolicitudDto(
-    @SerializedName("id_solicitud")
+/**
+ * DTO principal que se recibe desde el backend con los datos para el reporte.
+ * El backend envía los datos de forma plana (diasUmbral y codigoSla en el root)
+ */
+data class SolicitudReporteDto(
+    @SerializedName("idSolicitud")
     val idSolicitud: Int,
-
-    @SerializedName("id_personal")
-    val idPersonal: Int,
-
-    @SerializedName("id_rol_registro")
-    val idRolRegistro: Int,
-
-    @SerializedName("id_sla")
-    val idSla: Int,
-
-    @SerializedName("id_area")
-    val idArea: Int,
-
-    @SerializedName("id_estado_solicitud")
-    val idEstadoSolicitud: Int,
-
-    @SerializedName("fecha_solicitud")
+    @SerializedName("fechaSolicitud")
     val fechaSolicitud: String?,
-
-    @SerializedName("fecha_ingreso")
+    @SerializedName("fechaIngreso")
     val fechaIngreso: String?,
-
-    @SerializedName("num_dias_sla")
+    @SerializedName("numDiasSla")
     val numDiasSla: Int?,
-
-    @SerializedName("resumen_sla")
-    val resumenSla: String?,
-
-    @SerializedName("origen_dato")
-    val origenDato: String?,
-
-    @SerializedName("creado_en")
-    val creadoEn: String?,
-
-    @SerializedName("actualizado_en")
-    val actualizadoEn: String?
-)
-
-data class SolicitudConDetallesDto(
-    @SerializedName("id_solicitud")
-    val idSolicitud: Int,
-
-    @SerializedName("fecha_solicitud")
-    val fechaSolicitud: String?,
-
-    @SerializedName("fecha_ingreso")
-    val fechaIngreso: String?,
-
-    @SerializedName("num_dias_sla")
-    val numDiasSla: Int?,
-
-    @SerializedName("resumen_sla")
-    val resumenSla: String?,
-
-    @SerializedName("area")
-    val area: AreaDto?,
-
-    @SerializedName("estado_solicitud")
-    val estadoSolicitud: EstadoSolicitudDto?,
-
-    @SerializedName("config_sla")
-    val configSla: ConfigSlaDto?
-)
-
-data class AreaDto(
-    @SerializedName("id_area")
-    val idArea: Int,
-
-    @SerializedName("nombre_area")
-    val nombreArea: String,
-
-    @SerializedName("descripcion")
-    val descripcion: String?
-)
-
-data class EstadoSolicitudDto(
-    @SerializedName("id_estado_solicitud")
-    val idEstadoSolicitud: Int,
-
-    @SerializedName("codigo")
-    val codigo: String,
-
-    @SerializedName("descripcion")
-    val descripcion: String?
-)
-
-data class ConfigSlaDto(
-    @SerializedName("id_sla")
-    val idSla: Int,
-
-    @SerializedName("codigo_sla")
-    val codigoSla: String,
-
-    @SerializedName("descripcion")
-    val descripcion: String?,
-
-    @SerializedName("dias_umbral")
+    @SerializedName("diasUmbral")
     val diasUmbral: Int?,
-
-    @SerializedName("es_activo")
-    val esActivo: Boolean
+    @SerializedName("codigoSla")
+    val codigoSla: String?,
+    @SerializedName("idArea")
+    val idArea: Int?,
+    @SerializedName("resumenSla")
+    val resumenSla: String?,
+    @SerializedName("rolRegistro")
+    val rol: RolDto? = null
 )
 
+/**
+ * DTO para la configuración del SLA.
+ * Coincide con ConfigSlaDTO.cs del backend.
+ */
+data class ConfigSlaDto(
+    @SerializedName("codigoSla")
+    val codigoSla: String?,
+    @SerializedName("diasUmbral")
+    val diasUmbral: Int?
+)
+
+/**
+ * DTO para el Rol.
+ * Coincide con RolDTO.cs del backend.
+ */
+data class RolDto(
+    // El backend nombra esta propiedad 'nombreRol'
+    @SerializedName("nombreRol")
+    val nombre: String?
+)

@@ -1,0 +1,13 @@
+// ⚠️⚠️⚠️ ESTE ARCHIVO DEBE SER ELIMINADO INMEDIATAMENTE ⚠️⚠️⚠️
+//
+// Este archivo está causando el error:
+// "Redeclaration: class SlaRepository : Any"
+//
+// ELIMINA ESTE ARCHIVO AHORA MISMO:
+// 1. Click derecho en este archivo
+// 2. Delete
+// 3. OK
+// 4. Sync Gradle
+//
+// El archivo correcto es: SlaRepository.kt (sin _NEW)
+

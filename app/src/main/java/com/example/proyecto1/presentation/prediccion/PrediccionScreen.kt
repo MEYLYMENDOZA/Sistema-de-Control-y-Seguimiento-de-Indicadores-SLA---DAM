@@ -19,6 +19,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 // Colores corporativos según especificación
 private val AzulCorporativo = Color(0xFF2196F3)
@@ -44,16 +50,16 @@ fun PrediccionScreen(
     val ultimaActualizacion by vm.ultimaActualizacion.collectAsState()
     val usandoDatosDemo by vm.usandoDatosDemo.collectAsState()
 
-    // Filtros dinámicos desde la base de datos
-    val añosDisponibles by vm.añosDisponibles.collectAsState()
+    // Filtros dinamicos desde la base de datos
+    val aniosDisponibles by vm.aniosDisponibles.collectAsState()
     val mesesDisponibles by vm.mesesDisponibles.collectAsState()
 
-    // Estado local para filtros - usa el primer año disponible o vacío
+    // Estado local para filtros - usa el primer anio disponible o vacio
     var mesInicioSeleccionado by remember { mutableStateOf("Enero") }
     var mesFinSeleccionado by remember { mutableStateOf("Diciembre") }
     var anioSeleccionado by remember { mutableStateOf("") }
 
-    // Función helper para convertir nombre de mes a índice
+    // Funcion helper para convertir nombre de mes a indice
     fun mesToIndex(nombre: String): Int? {
         val meses = listOf(
             "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -73,10 +79,10 @@ fun PrediccionScreen(
         return null
     }
 
-    // Cuando se carguen los años disponibles, seleccionar el más reciente
-    LaunchedEffect(añosDisponibles) {
-        if (añosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
-            anioSeleccionado = añosDisponibles.first().toString()
+    // Cuando se carguen los anios disponibles, seleccionar el mas reciente
+    LaunchedEffect(aniosDisponibles) {
+        if (aniosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
+            anioSeleccionado = aniosDisponibles.first().toString()
         }
     }
 
@@ -94,7 +100,7 @@ fun PrediccionScreen(
 
     LaunchedEffect(Unit) {
         // Solo cargar años disponibles, no datos todavía
-        vm.cargarAñosDisponibles()
+        vm.cargarAniosDisponibles()
     }
 
     Scaffold {
@@ -132,7 +138,7 @@ fun PrediccionScreen(
                 onMesFinSeleccionado = { mesFinSeleccionado = it },
                 anioSeleccionado = anioSeleccionado,
                 onAnioSeleccionado = { anioSeleccionado = it },
-                añosDisponibles = añosDisponibles,
+                aniosDisponibles = aniosDisponibles,
                 mesesDisponibles = mesesDisponibles,
                 errorValidacion = validarRango()
             )
@@ -156,6 +162,18 @@ fun PrediccionScreen(
                         ultimaActualizacion = ultimaActualizacion,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Gráfico de histórico y predicción
+                    val datosHistoricos by vm.datosHistoricos.collectAsState()
+                    if (datosHistoricos.isNotEmpty()) {
+                        GraficoHistoricoYPrediccion(
+                            datosHistoricos = datosHistoricos,
+                            prediccion = prediccion,
+                            slope = slope,
+                            intercept = intercept,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
                     // Comparación predicción vs realidad (si existe)
                     if (valorReal != null) {
@@ -223,7 +241,7 @@ private fun BarraFiltros(
     onMesFinSeleccionado: (String) -> Unit,
     anioSeleccionado: String,
     onAnioSeleccionado: (String) -> Unit,
-    añosDisponibles: List<Int>,
+    aniosDisponibles: List<Int>,
     mesesDisponibles: List<Int>,
     errorValidacion: String?
 ) {
@@ -307,7 +325,7 @@ private fun BarraFiltros(
                 onAnioSeleccionado = onAnioSeleccionado,
                 onActualizar = onActualizar,
                 habilitado = habilitado,
-                añosDisponibles = añosDisponibles,
+                aniosDisponibles = aniosDisponibles,
                 mesesDisponibles = mesesDisponibles,
                 errorValidacion = errorValidacion
             )
@@ -325,7 +343,7 @@ private fun SelectorMesAnio(
     onAnioSeleccionado: (String) -> Unit,
     onActualizar: () -> Unit,
     habilitado: Boolean,
-    añosDisponibles: List<Int>,
+    aniosDisponibles: List<Int>,
     mesesDisponibles: List<Int>,
     errorValidacion: String?
 ) {
@@ -347,8 +365,8 @@ private fun SelectorMesAnio(
         }
     }
 
-    // Construir lista de años como strings
-    val aniosParaMostrar = añosDisponibles.map { it.toString() }
+    // Construir lista de anios como strings
+    val aniosParaMostrar = aniosDisponibles.map { it.toString() }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -837,6 +855,378 @@ private fun AccionesUsuario(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Composable
+private fun GraficoHistoricoYPrediccion(
+    datosHistoricos: List<SlaDataPoint>,
+    prediccion: Double?,
+    slope: Double?,
+    intercept: Double?,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Título
+            Text(
+                text = "Histórico y Predicción",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF202124)
+            )
+
+            // Descripción
+            Text(
+                text = "Cada barra vertical representa un mes. El último segmento (verde) muestra la predicción para el próximo período.",
+                fontSize = 11.sp,
+                color = GrisTexto.copy(alpha = 0.8f),
+                lineHeight = 14.sp
+            )
+
+            // Leyenda
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                LeyendaItem(color = AzulCorporativo, texto = "Histórico")
+                LeyendaItem(color = Verde, texto = "Predicción")
+                LeyendaItem(color = Color(0xFFFF9800), texto = "Proyección")
+            }
+
+            // Gráfico
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                val width = size.width
+                val height = size.height
+                val paddingLeft = 70f
+                val paddingRight = 50f
+                val paddingTop = 30f
+                val paddingBottom = 70f
+
+                val graphWidth = width - paddingLeft - paddingRight
+                val graphHeight = height - paddingTop - paddingBottom
+
+                // Calcular rango de datos
+                val allValues = datosHistoricos.map { it.valor }
+                if (allValues.isEmpty()) return@Canvas
+
+                val minValue = kotlin.math.min(0.0, allValues.minOrNull() ?: 0.0)
+                val maxValue = kotlin.math.max(100.0, allValues.maxOrNull() ?: 100.0)
+                val valueRange = maxValue - minValue
+
+                // Función para convertir valor Y a coordenada
+                fun valueToY(value: Double): Float {
+                    return paddingTop + graphHeight - ((value - minValue) / valueRange * graphHeight).toFloat()
+                }
+
+                // Función para convertir índice X a coordenada (incluyendo predicción)
+                fun indexToX(index: Int, total: Int): Float {
+                    val spacing = graphWidth / total.toFloat()
+                    return paddingLeft + (index * spacing) + (spacing / 2f)
+                }
+
+                // Dibujar barras de fondo alternadas por mes (histórico)
+                datosHistoricos.forEachIndexed { index, _ ->
+                    if (index % 2 == 0) {
+                        val x = indexToX(index, datosHistoricos.size + 1)
+                        val barWidth = graphWidth / (datosHistoricos.size + 1).toFloat()
+
+                        drawRect(
+                            color = Color(0xFFF5F7FA),
+                            topLeft = Offset(x - barWidth / 2f, paddingTop),
+                            size = androidx.compose.ui.geometry.Size(barWidth, graphHeight)
+                        )
+                    }
+                }
+
+                // Dibujar barra de fondo para la predicción (verde claro)
+                val predIndex = datosHistoricos.size
+                val xPred = indexToX(predIndex, datosHistoricos.size + 1)
+                val barWidth = graphWidth / (datosHistoricos.size + 1).toFloat()
+
+                drawRect(
+                    color = Verde.copy(alpha = 0.05f),
+                    topLeft = Offset(xPred - barWidth / 2f, paddingTop),
+                    size = androidx.compose.ui.geometry.Size(barWidth, graphHeight)
+                )
+
+                // Línea divisoria entre histórico y predicción
+                drawLine(
+                    color = Color(0xFFFF9800).copy(alpha = 0.4f),
+                    start = Offset(xPred - barWidth / 2f, paddingTop - 10f),
+                    end = Offset(xPred - barWidth / 2f, paddingTop + graphHeight),
+                    strokeWidth = 2f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f))
+                )
+
+                // Dibujar ejes
+                // Eje Y
+                drawLine(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    start = Offset(paddingLeft, paddingTop),
+                    end = Offset(paddingLeft, paddingTop + graphHeight),
+                    strokeWidth = 2f
+                )
+
+                // Eje X
+                drawLine(
+                    color = Color.Gray.copy(alpha = 0.3f),
+                    start = Offset(paddingLeft, paddingTop + graphHeight),
+                    end = Offset(paddingLeft + graphWidth, paddingTop + graphHeight),
+                    strokeWidth = 2f
+                )
+
+                // Dibujar líneas de guía horizontales y etiquetas Y
+                val numGuias = 5
+                for (i in 0..numGuias) {
+                    val valor = minValue + (valueRange / numGuias * i)
+                    val y = valueToY(valor)
+
+                    // Línea de guía
+                    drawLine(
+                        color = Color.Gray.copy(alpha = 0.1f),
+                        start = Offset(paddingLeft, y),
+                        end = Offset(paddingLeft + graphWidth, y),
+                        strokeWidth = 1f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+                    )
+
+                    // Etiqueta Y
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            String.format("%.0f%%", valor),
+                            paddingLeft - 10f,
+                            y + 5f,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.GRAY
+                                textSize = 28f
+                                textAlign = android.graphics.Paint.Align.RIGHT
+                            }
+                        )
+                    }
+                }
+
+                // Dibujar línea histórica (azul)
+                for (i in 0 until datosHistoricos.size - 1) {
+                    val x1 = indexToX(i, datosHistoricos.size + 1) // +1 para incluir predicción
+                    val y1 = valueToY(datosHistoricos[i].valor)
+                    val x2 = indexToX(i + 1, datosHistoricos.size + 1)
+                    val y2 = valueToY(datosHistoricos[i + 1].valor)
+
+                    drawLine(
+                        color = AzulCorporativo,
+                        start = Offset(x1, y1),
+                        end = Offset(x2, y2),
+                        strokeWidth = 3f,
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Dibujar puntos del histórico
+                datosHistoricos.forEachIndexed { index, punto ->
+                    val x = indexToX(index, datosHistoricos.size + 1)
+                    val y = valueToY(punto.valor)
+
+                    // Círculo externo
+                    drawCircle(
+                        color = Color.White,
+                        radius = 8f,
+                        center = Offset(x, y)
+                    )
+                    // Círculo interno
+                    drawCircle(
+                        color = AzulCorporativo,
+                        radius = 6f,
+                        center = Offset(x, y)
+                    )
+                }
+
+                // Dibujar línea de predicción (verde punteada)
+                if (prediccion != null && datosHistoricos.isNotEmpty()) {
+                    val lastIndex = datosHistoricos.size - 1
+                    val x1 = indexToX(lastIndex, datosHistoricos.size + 1)
+                    val y1 = valueToY(datosHistoricos.last().valor)
+                    val x2 = indexToX(datosHistoricos.size, datosHistoricos.size + 1)
+                    val y2 = valueToY(prediccion)
+
+                    drawLine(
+                        color = Verde,
+                        start = Offset(x1, y1),
+                        end = Offset(x2, y2),
+                        strokeWidth = 3f,
+                        cap = StrokeCap.Round,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+                    )
+
+                    // Punto de predicción (más grande)
+                    drawCircle(
+                        color = Color.White,
+                        radius = 12f,
+                        center = Offset(x2, y2)
+                    )
+                    drawCircle(
+                        color = Verde,
+                        radius = 9f,
+                        center = Offset(x2, y2)
+                    )
+
+                    // Fondo para la etiqueta de predicción
+                    val labelText = String.format("%.1f%%", prediccion)
+                    val labelY = y2 - 25f
+
+                    // Fondo blanco con borde verde
+                    drawRoundRect(
+                        color = Color.White,
+                        topLeft = Offset(x2 - 35f, labelY - 25f),
+                        size = androidx.compose.ui.geometry.Size(70f, 30f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+                    )
+
+                    drawRoundRect(
+                        color = Verde,
+                        topLeft = Offset(x2 - 35f, labelY - 25f),
+                        size = androidx.compose.ui.geometry.Size(70f, 30f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f),
+                        style = Stroke(width = 2f)
+                    )
+
+                    // Etiqueta de predicción
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            labelText,
+                            x2,
+                            labelY,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.rgb(56, 142, 60)
+                                textSize = 28f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                isFakeBoldText = true
+                            }
+                        )
+                    }
+                }
+
+                // Etiquetas del eje X - Mostrar todos los meses
+                datosHistoricos.forEachIndexed { index, punto ->
+                    val x = indexToX(index, datosHistoricos.size + 1)
+                    val y = paddingTop + graphHeight + 25f
+
+                    // Nombre del mes (primera línea)
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            punto.mes,
+                            x,
+                            y,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.GRAY
+                                textSize = 22f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                            }
+                        )
+                    }
+
+                    // Valor del mes (segunda línea - más pequeño)
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            String.format("%.0f%%", punto.valor),
+                            x,
+                            y + 20f,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.rgb(33, 150, 243)
+                                textSize = 20f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                isFakeBoldText = true
+                            }
+                        )
+                    }
+                }
+
+                // Etiqueta "PRÓXIMO MES" en el eje X para predicción
+                if (prediccion != null) {
+                    val x = indexToX(datosHistoricos.size, datosHistoricos.size + 1)
+                    val y = paddingTop + graphHeight + 25f
+
+                    // Texto "PRÓXIMO" (primera línea)
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            "PRÓXIMO",
+                            x,
+                            y,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.rgb(76, 175, 80)
+                                textSize = 20f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                isFakeBoldText = true
+                            }
+                        )
+                    }
+
+                    // Texto "MES" (segunda línea)
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            "MES",
+                            x,
+                            y + 18f,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.rgb(76, 175, 80)
+                                textSize = 20f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                isFakeBoldText = true
+                            }
+                        )
+                    }
+
+                    // Valor predicho (tercera línea - destacado)
+                    drawContext.canvas.nativeCanvas.apply {
+                        drawText(
+                            String.format("%.1f%%", prediccion),
+                            x,
+                            y + 38f,
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.rgb(56, 142, 60)
+                                textSize = 22f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                isFakeBoldText = true
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeyendaItem(color: Color, texto: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Surface(
+            modifier = Modifier.size(12.dp),
+            color = color,
+            shape = RoundedCornerShape(2.dp)
+        ) {}
+        Text(
+            text = texto,
+            fontSize = 12.sp,
+            color = GrisTexto
+        )
     }
 }
 

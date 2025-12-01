@@ -29,7 +29,7 @@ data class EstadisticasSla(
 
 class PrediccionViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Repositorio que consume la API REST de SQL Server
+    // Repositorio UNIFICADO que consume la API REST de SQL Server
     private val repository = SlaRepository()
 
     // PDF Exporter
@@ -69,9 +69,9 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
     private val _valorReal = MutableStateFlow<Double?>(null)
     val valorReal: StateFlow<Double?> get() = _valorReal
 
-    // Filtros dinámicos desde la base de datos
-    private val _añosDisponibles = MutableStateFlow<List<Int>>(emptyList())
-    val añosDisponibles: StateFlow<List<Int>> get() = _añosDisponibles
+    // Filtros dinamicos desde la base de datos
+    private val _aniosDisponibles = MutableStateFlow<List<Int>>(emptyList())
+    val aniosDisponibles: StateFlow<List<Int>> get() = _aniosDisponibles
 
     private val _mesesDisponibles = MutableStateFlow<List<Int>>(emptyList())
     val mesesDisponibles: StateFlow<List<Int>> get() = _mesesDisponibles
@@ -86,20 +86,20 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         // Cargar años disponibles al iniciar
-        cargarAñosDisponibles()
+        cargarAniosDisponibles()
     }
 
     /**
      * Carga los años disponibles desde la base de datos
      */
-    fun cargarAñosDisponibles() {
+    fun cargarAniosDisponibles() {
         viewModelScope.launch {
             try {
-                val años = repository.obtenerAñosDisponibles()
-                _añosDisponibles.value = años
-                Log.d("PrediccionViewModel", "✅ Años disponibles cargados: $años")
-            } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar años disponibles", e)
+                val anios = repository.obtenerAniosDisponibles()
+                _aniosDisponibles.value = anios
+                Log.d("PrediccionViewModel", "✅ Anios disponibles cargados: $anios")
+            } catch (_: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al cargar anios disponibles")
             }
         }
     }
@@ -315,7 +315,7 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
 
                     try {
                         context.startActivity(intent)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         // Si no hay visor de PDF, compartir el archivo
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "application/pdf"
