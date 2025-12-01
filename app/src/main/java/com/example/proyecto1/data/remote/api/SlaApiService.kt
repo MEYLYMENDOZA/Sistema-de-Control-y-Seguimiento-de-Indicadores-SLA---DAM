@@ -23,7 +23,7 @@ interface SlaApiService {
 
     // --- Endpoints para Carga de Datos ---
 
-    @POST("api/solicitudes/lote")
+    @POST("api/solicitud/lote") // CORREGIDO: de "solicitudes" a "solicitud"
     suspend fun subirSolicitudes(@Body solicitudes: List<CargaItemData>): Response<Unit>
 
     // --- Endpoints para Reportes y Predicción ---

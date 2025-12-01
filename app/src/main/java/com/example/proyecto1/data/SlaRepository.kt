@@ -60,10 +60,16 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
                 if (response.isSuccessful) {
                     Result.success(Unit)
                 } else {
-                    Result.failure(Exception("Error al subir datos: ${response.code()}"))
+                    val errorBody = response.errorBody()?.string()
+                    val errorMessage = if (!errorBody.isNullOrBlank()) {
+                        errorBody.replace("{\"message\":\"", "").replace("\"}", "")
+                    } else {
+                        "Error en el servidor: ${response.code()}"
+                    }
+                    Result.failure(Exception(errorMessage))
                 }
             } catch (e: Exception) {
-                Result.failure(e)
+                Result.failure(Exception("No se pudo conectar al servidor. Verifica tu conexión."))
             }
         }
     }
@@ -85,13 +91,17 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
     }
 
     private fun SolicitudReporteDto.toCargaItemData(): CargaItemData {
+        // CORRECCIÓN: Usamos los códigos sin ceros para que coincida con la BD
         val slaTargets = mapOf("SLA1" to 35L, "SLA2" to 20L)
         val apiFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
         val displayFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         val fechaSolicitud = try { this.fechaSolicitud?.let { LocalDate.parse(it, apiFormatter) } } catch (e: Exception) { null }
         val fechaIngreso = try { this.fechaIngreso?.let { LocalDate.parse(it, apiFormatter) } } catch (e: Exception) { null }
         val diasTranscurridos = if (fechaSolicitud != null && fechaIngreso != null) ChronoUnit.DAYS.between(fechaSolicitud, fechaIngreso) else this.numDiasSla?.toLong() ?: 0L
+        
+        // CORRECCIÓN: Revertimos al código original para quitar los ceros, como corresponde
         val targetSlaCode = this.codigoSla?.uppercase()?.replace("00", "") ?: ""
+        
         val targetDays = slaTargets[targetSlaCode] ?: 35L
         val cumple = diasTranscurridos >= 0 && diasTranscurridos < targetDays
         val estado = if (cumple) "Cumple" else "No Cumple"
@@ -129,7 +139,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         val porcentajeCumplimiento = if (totalCasos > 0) (cumplen.toDouble() / totalCasos) * 100 else 0.0
         val promedioDias = solicitudes.mapNotNull { it.numDiasSla }.average()
         val resumen = ResumenEjecutivoDto(totalCasos, cumplen, noCumplen, porcentajeCumplimiento, promedioDias)
-        val cumplimientoPorTipo = solicitudes.groupBy { it.codigoSla ?: "Sin Tipo" }.map { (tipo, lista) ->
+        val cumplimientoPorTipo = solicitudes.groupBy { it.codigoSla?.replace("00", "") ?: "Sin Tipo" }.map { (tipo, lista) ->
             val total = lista.size
             val cumplenTipo = lista.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
             CumplimientoPorTipoDto(tipo, total, cumplenTipo, if (total > 0) (cumplenTipo.toDouble() / total) * 100 else 0.0)
@@ -145,7 +155,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
             val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val estado = if (sol.numDiasSla != null && sol.diasUmbral != null) if (sol.numDiasSla <= sol.diasUmbral) "Cumple" else "No Cumple" else "N/A"
-            UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng, sol.codigoSla ?: "N/A", sol.numDiasSla, estado)
+            UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng, sol.codigoSla?.replace("00", "") ?: "N/A", sol.numDiasSla, estado)
         }
         return ReporteGeneralDto(resumen, cumplimientoPorTipo, cumplimientoPorRol, ultimosRegistros)
     }

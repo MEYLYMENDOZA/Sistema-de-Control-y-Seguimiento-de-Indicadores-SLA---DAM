@@ -53,7 +53,7 @@ class GestionViewModel @Inject constructor(
         }
     }
 
-    // --- FUNCIÓN NUEVA PARA SUBIR DATOS ---
+    // --- FUNCIÓN PARA SUBIR DATOS ---
     fun subirDatosAGuardar() {
         val itemsToSave = _uiState.value.allItems
         if (itemsToSave.isEmpty()) {
@@ -65,7 +65,7 @@ class GestionViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
             slaRepository.subirSolicitudes(itemsToSave).onSuccess {
                 _uiState.update { it.copy(isLoading = false, successMessage = "¡${itemsToSave.size} registros guardados con éxito en la base de datos!") }
-                // Opcional: Limpiar la lista después de guardar
+                // Limpiar la lista después de guardar
                 slaRepository.clearAll()
             }.onFailure { error ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.message) }
