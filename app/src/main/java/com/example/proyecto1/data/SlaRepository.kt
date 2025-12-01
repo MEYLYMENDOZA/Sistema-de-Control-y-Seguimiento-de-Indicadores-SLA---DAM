@@ -46,7 +46,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
                 val cargaItems = solicitudDtos.map { it.toCargaItemData() }
                 _slaItems.update { cargaItems }
             } else {
-                Log.e(TAG, "Error de API: ${response.code()} - ${response.message()}")
+                Log.e(TAG, "Error de API: ${'$'}{response.code()} - ${'$'}{response.message()}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error al obtener datos de la API", e)
@@ -64,7 +64,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
                     val errorMessage = if (!errorBody.isNullOrBlank()) {
                         errorBody.replace("{\"message\":\"", "").replace("\"}", "")
                     } else {
-                        "Error en el servidor: ${response.code()}"
+                        "Error en el servidor: ${'$'}{response.code()}"
                     }
                     Result.failure(Exception(errorMessage))
                 }
@@ -124,10 +124,10 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
                     val processedReport = procesarSolicitudesParaReporte(body)
                     Result.success(Pair(processedReport, body))
                 } else {
-                    Result.failure(Exception("Error ${response.code()}: ${response.errorBody()?.string()}"))
+                    Result.failure(Exception("Error ${'$'}{response.code()}: ${'$'}{response.errorBody()?.string()}"))
                 }
             } catch (e: Exception) {
-                Result.failure(Exception("No se pudo conectar al servidor: ${e.message}"))
+                Result.failure(Exception("No se pudo conectar al servidor: ${'$'}{e.message}"))
             }
         }
     }
@@ -163,7 +163,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
     suspend fun obtenerYPredecirSla(meses: Int = 12, anio: Int? = null, mes: Int? = null): Triple<Triple<Double, Double, Double>?, Double?, String?> {
         return try {
             val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = null, idArea = null)
-            if (!response.isSuccessful || response.body().isNullOrEmpty()) return Triple(null, null, "Error o no hay datos: ${response.code()}")
+            if (!response.isSuccessful || response.body().isNullOrEmpty()) return Triple(null, null, "Error o no hay datos: ${'$'}{response.code()}")
             val solicitudes = response.body()!!
             val todasLasEstadisticas = calcularEstadisticasPorMes(solicitudes)
             if (todasLasEstadisticas.size < 2) return Triple(null, null, "Datos insuficientes (se necesitan al menos 2 meses).")
@@ -173,7 +173,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
             val prediccion = model.predict((x.maxOrNull() ?: 0.0) + 1.0)
             Triple(Triple(prediccion, model.slope, model.intercept), null, null)
         } catch (e: Exception) {
-            Triple(null, null, "Error de conexión: ${e.message}")
+            Triple(null, null, "Error de conexión: ${'$'}{e.message}")
         }
     }
 
@@ -217,9 +217,9 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         return withContext(Dispatchers.IO) {
             try {
                 val response = apiService.getConfigSla()
-                if (response.isSuccessful && response.body() != null) Result.success(response.body()!!) else Result.failure(Exception("Error ${response.code()}"))
+                if (response.isSuccessful && response.body() != null) Result.success(response.body()!!) else Result.failure(Exception("Error ${'$'}{response.code()}"))
             } catch (e: Exception) {
-                Result.failure(Exception("Error de conexión: ${e.message}"))
+                Result.failure(Exception("Error de conexión: ${'$'}{e.message}"))
             }
         }
     }
@@ -228,9 +228,9 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         return withContext(Dispatchers.IO) {
             try {
                 val response = apiService.updateConfigSla(configs)
-                if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("Error ${response.code()}"))
+                if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("Error ${'$'}{response.code()}"))
             } catch (e: Exception) {
-                Result.failure(Exception("Error de conexión: ${e.message}"))
+                Result.failure(Exception("Error de conexión: ${'$'}{e.message}"))
             }
         }
     }
