@@ -304,10 +304,10 @@ private class FakeSlaApiService : SlaApiService {
     }
 
     override suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>> {
-        return Response.success(emptyList())
+        return Response.success(listOf(ConfigSlaResponseDto(1, "SLA1", 35), ConfigSlaResponseDto(2, "SLA2", 20)))
     }
 
-    override suspend fun updateConfigSla(configs: List<ConfigSlaUpdateDto>): Response<Unit> {
+    override suspend fun updateConfigSla(configs: ConfigSlaUpdateWrapper): Response<Unit> {
         return Response.success(Unit)
     }
 }

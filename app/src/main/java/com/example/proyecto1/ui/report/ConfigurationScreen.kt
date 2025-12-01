@@ -20,18 +20,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel // <-- AÑADIDO
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
-// import com.example.proyecto1.data.repository.SlaRepository // <-- ELIMINADO
 import com.example.proyecto1.ui.theme.Black
 import com.example.proyecto1.ui.theme.White
+import java.util.Collections
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigurationScreen(
     openDrawer: () -> Unit,
-    viewModel: ConfigurationViewModel = hiltViewModel() // <-- CORREGIDO
+    viewModel: ConfigurationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val saveStatus by viewModel.saveStatus.collectAsState()
@@ -84,7 +84,7 @@ fun ConfigurationScreen(
 }
 
 @Composable
-fun ConfigurationContent(padding: PaddingValues, configs: List<ConfigSlaResponseDto>, onSave: (List<ConfigSlaUpdateDto>) -> Unit) {
+fun ConfigurationContent(padding: PaddingValues, configs: List<ConfigSlaResponseDto>, onSave: (Map<Int, String>) -> Unit) {
     LazyColumn(
         modifier = Modifier
             .padding(padding)
@@ -101,17 +101,16 @@ fun ConfigurationContent(padding: PaddingValues, configs: List<ConfigSlaResponse
 }
 
 @Composable
-fun SlaConfigurationCard(configs: List<ConfigSlaResponseDto>, onSave: (List<ConfigSlaUpdateDto>) -> Unit) {
-    val textFieldsState = remember { mutableStateMapOf<String, String>() }
+fun SlaConfigurationCard(configs: List<ConfigSlaResponseDto>, onSave: (Map<Int, String>) -> Unit) {
+    val textFieldsState = remember { mutableStateMapOf<Int, String>() }
     val slasToEdit = listOf("SLA1", "SLA2")
     val filteredConfigs = configs.filter { config ->
         slasToEdit.any { it.equals(config.codigoSla.trim(), ignoreCase = true) }
     }
 
-    // Este efecto inicializa el estado la primera vez que los datos se cargan.
     LaunchedEffect(configs) {
         filteredConfigs.forEach { config ->
-            textFieldsState[config.codigoSla] = config.diasUmbral.toString()
+            textFieldsState[config.idSla] = config.diasUmbral.toString()
         }
     }
 
@@ -127,34 +126,31 @@ fun SlaConfigurationCard(configs: List<ConfigSlaResponseDto>, onSave: (List<Conf
             }
 
             filteredConfigs.forEach { config ->
-                 SlaInput(label = "${config.codigoSla} - Límite de días", value = textFieldsState[config.codigoSla] ?: "", onValueChange = {
-                    textFieldsState[config.codigoSla] = it
+                 SlaInput(label = "${config.codigoSla} - Límite de días", value = textFieldsState[config.idSla] ?: "", onValueChange = {
+                    textFieldsState[config.idSla] = it
                 }, description = "El ${config.codigoSla} se cumple si el número de días es menor a este límite.")
             }
             
             InfoCard()
 
             Button(onClick = {
-                val updates = textFieldsState.map { (codigo, dias) ->
-                    ConfigSlaUpdateDto(codigo, dias.toIntOrNull() ?: 0)
-                }
-                onSave(updates)
+                // AHORA SOLO ENVIAMOS EL MAPA DE VALORES CAMBIADOS
+                onSave(Collections.unmodifiableMap(textFieldsState))
             }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Black)) {
                 Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text("Guardar Cambios")
             }
 
-            // CORRECCIÓN FINAL: Restaurar a valores por defecto (35 y 20)
             OutlinedButton(onClick = {
-                textFieldsState.keys.forEach { key ->
-                    if (key.equals("SLA1", ignoreCase = true)) {
-                        textFieldsState[key] = "35"
-                    }
-                    if (key.equals("SLA2", ignoreCase = true)) {
-                        textFieldsState[key] = "20"
-                    }
-                }
+                textFieldsState.keys.forEach { id ->
+                     val config = configs.find { it.idSla == id }!!
+                     if (config.codigoSla.equals("SLA1", ignoreCase = true)) {
+                         textFieldsState[id] = "35"
+                     } else if (config.codigoSla.equals("SLA2", ignoreCase = true)) {
+                         textFieldsState[id] = "20"
+                     }
+                 }
             }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Restore, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
