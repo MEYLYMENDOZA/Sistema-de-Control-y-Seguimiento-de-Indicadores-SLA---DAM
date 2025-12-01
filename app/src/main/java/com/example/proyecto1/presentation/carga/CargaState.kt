@@ -2,27 +2,7 @@ package com.example.proyecto1.presentation.carga
 
 import android.net.Uri
 
-// Este archivo contiene todas las clases de datos que definen el estado de la UI de CargaScreen.
-
-data class CargaUiState(
-    // Estado del archivo seleccionado
-    val selectedFileUri: Uri? = null,
-    val selectedFileName: String? = null,
-
-    // Estado del resumen y los datos cargados
-    val summary: CargaSummaryData? = null,
-    val items: List<CargaItemData> = emptyList(),
-
-    // Estado de la UI
-    val isLoading: Boolean = false,
-    val userMessage: String? = null,
-    val errorMessage: String? = null,
-    val fileName: String? = null
-)
-
-data class CargaSummaryData(
-    val total: Int, val cumplen: Int, val noCumplen: Int, val cumplimiento: Float
-)
+// --- UNIFIED DATA CLASSES FOR CARGA FEATURE ---
 
 data class CargaItemData(
     val codigo: String,
@@ -30,9 +10,26 @@ data class CargaItemData(
     val tipoSla: String,
     val cumplimiento: Float,
     val diasTranscurridos: Int,
-    val cantidadPorRol: Int,
+    val diasObjetivo: Int, // Campo para almacenar el umbral de días del SLA
     val estado: String,
-    // CAMPOS NUEVOS PARA MOSTRAR EN LA TARJETA DE GESTIÓN
     val fechaSolicitud: String,
-    val fechaIngreso: String
+    val fechaIngreso: String,
+    val cantidadPorRol: Int = 0 // Campo para el conteo por rol
+)
+
+data class CargaSummaryData(
+    val totalRegistros: Int,
+    val cumplen: Int,
+    val noCumplen: Int,
+    val porcCumplimiento: Float
+)
+
+data class CargaUiState(
+    val isLoading: Boolean = false,
+    val selectedFileUri: Uri? = null,
+    val selectedFileName: String? = null,
+    val summary: CargaSummaryData? = null,
+    val items: List<CargaItemData> = emptyList(),
+    val errorMessage: String? = null,
+    val userMessage: String? = null
 )
