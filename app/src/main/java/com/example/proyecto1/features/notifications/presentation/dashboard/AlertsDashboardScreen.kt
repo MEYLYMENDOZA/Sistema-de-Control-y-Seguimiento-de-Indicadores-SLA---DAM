@@ -30,7 +30,8 @@ fun AlertsDashboardScreen(
     // Estas son las funciones de navegación
     onNavigateToAlertsHistory: () -> Unit,
     onNavigateToCriticalCases: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onMenuClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -39,7 +40,7 @@ fun AlertsDashboardScreen(
             TopAppBar(
                 title = { Text("Alertas") },
                 navigationIcon = {
-                    IconButton(onClick = { /* TODO: Abrir menú lateral */ }) {
+                    IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = "Menú")
                     }
                 }

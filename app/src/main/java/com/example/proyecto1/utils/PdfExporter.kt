@@ -96,7 +96,11 @@ class PdfExporter(private val context: Context) {
         }
     }
 
-    // --- Componentes del PDF ---
+    private fun agregarEncabezado(document: Document) {
+        try {
+            // Cargar logo TATA desde recursos drawable
+            // Nota: El archivo se llama logo_TATA.png pero Android lo convierte a logo_tata
+            val resourceId = context.resources.getIdentifier("logo_tata", "drawable", context.packageName)
 
     private fun crearArchivo(nombreBase: String): File {
         val reportsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "SLA_Reports")

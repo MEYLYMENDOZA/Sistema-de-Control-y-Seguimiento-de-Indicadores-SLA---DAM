@@ -1,6 +1,7 @@
 package com.example.proyecto1.features.notifications.presentation.alert_history.components
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,7 +27,8 @@ import com.example.proyecto1.features.notifications.domain.model.VisualAlert
 fun AlertHistoryItem(
     modifier: Modifier = Modifier,
     alert: VisualAlert,
-    onDismiss: (String) -> Unit
+    onDismiss: (String) -> Unit,
+    onClick: (VisualAlert) -> Unit  // ✅ NUEVO: Parámetro para ver detalles
 ) {
     // Determina el color y el ícono según la criticidad
     val (icon, tintColor) = remember(alert.criticality) {
@@ -40,7 +42,7 @@ fun AlertHistoryItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            // Agrega un borde del color de la criticidad
+            .clickable { onClick(alert) }  // ✅ NUEVO: Clickeable para ver detalles
             .border(2.dp, tintColor, RoundedCornerShape(12.dp)),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)

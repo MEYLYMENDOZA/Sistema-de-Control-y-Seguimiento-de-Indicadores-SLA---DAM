@@ -1,4 +1,4 @@
-package com.example.proyecto1 // ASUMO QUE TU CLASE MAINACTIVITY ESTÁ EN ESTE PACKAGE
+package com.example.proyecto1 // <--- ESTE ES EL PAQUETE CORRECTO DE TUS COMPAÑEROS
 
 import android.app.Application
 import android.content.Context
@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Report
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext // NECESARIO PARA OBTENER EL CONTEXTO
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -27,9 +29,19 @@ import androidx.navigation.compose.rememberNavController
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.compose.material3.*
-import androidx.compose.material3.DrawerValue as M3DrawerValue
-import androidx.compose.material3.rememberDrawerState as rememberM3DrawerState
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+
+// --- IMPORTS DE TUS PANTALLAS (BRAYAN) ---
+import com.example.proyecto1.features.notifications.presentation.dashboard.AlertsDashboardScreen
+import com.example.proyecto1.features.notifications.presentation.dashboard.AlertsDashboardViewModel
+import com.example.proyecto1.features.notifications.presentation.alert_history.AlertsHistoryScreen
+import com.example.proyecto1.features.notifications.presentation.alert_history.AlertsHistoryViewModel
+import com.example.proyecto1.features.notifications.presentation.email_notifications.EmailNotificationsScreen
+import com.example.proyecto1.features.notifications.presentation.email_notifications.EmailNotificationsViewModel
+
+// --- IMPORTS DEL EQUIPO ---
 import com.example.proyecto1.ui.login.LoginScreen
 import com.example.proyecto1.ui.report.ConfigurationScreen
 import com.example.proyecto1.ui.report.DashboardScreen
@@ -42,14 +54,22 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 
-// DataStore delegate (Preferences) - disponible a nivel de archivo
+// DataStore delegate
 private val Context.dataStore by preferencesDataStore(name = "user_prefs")
 
 // -------------------------------------------------
-// Screen routes (simple sealed)
+// 1. RUTAS DE PANTALLAS (Screen routes)
 sealed class Screen(val route: String, val label: String) {
     object Login : Screen("login", "Login")
+
+    // Tu Dashboard Principal de Alertas (Ahora apunta a tu pantalla)
     object Alertas : Screen("alertas", "Alertas")
+
+    // --- TUS NUEVAS RUTAS (BRAYAN) ---
+    object AlertasHistorial : Screen("alertas_historial", "Historial")
+    object NotificacionesEmail : Screen("notificaciones_email", "Notificaciones")
+    // ---------------------------------
+
     object Dashboard : Screen("dashboard", "Dashboard")
     object Reportes : Screen("reportes", "Reportes")
     object Usuarios : Screen("usuarios", "Usuarios")
@@ -60,7 +80,7 @@ sealed class Screen(val route: String, val label: String) {
 }
 
 // -------------------------------------------------
-// SessionViewModel (antes LoginViewModel) que usa Preferences DataStore para persistir la sesión
+// 2. VIEWMODEL DE SESIÓN (LOGIN)
 class SessionViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = getApplication<Application>().applicationContext
     private val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
@@ -84,7 +104,7 @@ class SessionViewModelFactory(private val application: Application) : ViewModelP
 }
 
 // -------------------------------------------------
-// MainActivity completo y autocontenido
+// 3. MAIN ACTIVITY
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,7 +120,7 @@ class MainActivity : ComponentActivity() {
 }
 
 // -------------------------------------------------
-// AppRoot: controla la separación estricta de NavHosts
+// 4. APP ROOT (Lógica de Navegación Principal)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot(sessionViewModel: SessionViewModel) {
@@ -116,7 +136,6 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
         val loginNavController = rememberNavController()
         NavHost(navController = loginNavController, startDestination = Screen.Login.route) {
             composable(Screen.Login.route) {
-                // Usa LoginScreen avanzado desde ui.login
                 LoginScreen(onLoginSuccess = {
                     sessionViewModel.saveSession()
                     isLoggedIn.value = true
@@ -125,7 +144,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
         }
     } else {
         val modulesNavController = rememberNavController()
-        val drawerState = rememberM3DrawerState(M3DrawerValue.Closed)
+        val drawerState = rememberDrawerState(DrawerValue.Closed)
         val scope = rememberCoroutineScope()
 
         ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
@@ -144,9 +163,10 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
             val currentDestination by modulesNavController.currentBackStackEntryAsState()
             val currentRoute = currentDestination?.destination?.route
 
-            // Determinar el título según la pantalla actual
             val titulo = when (currentRoute) {
                 Screen.Alertas.route -> "Alertas"
+                Screen.AlertasHistorial.route -> "Historial de Alertas"
+                Screen.NotificacionesEmail.route -> "Notificaciones Email"
                 Screen.Dashboard.route -> "Dashboard"
                 Screen.Reportes.route -> "Reportes" // El título lo gestiona DashboardScreen
                 Screen.Usuarios.route -> "Usuarios"
@@ -159,8 +179,10 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
 
             Scaffold(
                 topBar = {
-                    // Las pantallas de Reportes y Configuración tienen su propia TopAppBar
-                    if (currentRoute != Screen.Reportes.route && currentRoute != Screen.Configuracion.route) {
+                    // Ocultamos el TopBar global en TUS pantallas porque ya tienen uno propio
+                    if (currentRoute != Screen.Alertas.route &&
+                        currentRoute != Screen.AlertasHistorial.route &&
+                        currentRoute != Screen.NotificacionesEmail.route) {
                         TopAppBar(
                             title = { Text(titulo) },
                             navigationIcon = {
@@ -170,6 +192,22 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                             }
                         )
                     }
+                },
+                bottomBar = {
+                    NavigationBar {
+                        // Agregamos tus notificaciones al bottom bar también si quieres
+                        val items = listOf(Screen.Alertas, Screen.Dashboard, Screen.Reportes)
+                        val currentDestination by modulesNavController.currentBackStackEntryAsState()
+                        val currentRoute = currentDestination?.destination?.route
+                        items.forEach { screen ->
+                            NavigationBarItem(
+                                selected = currentRoute == screen.route,
+                                onClick = { modulesNavController.navigate(screen.route) { launchSingleTop = true } },
+                                icon = { Icon(Icons.Filled.Report, contentDescription = null) },
+                                label = { Text(screen.label) }
+                            )
+                        }
+                    }
                 }
             ) { innerPadding ->
                 NavHost(
@@ -177,7 +215,44 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                     startDestination = Screen.Alertas.route,
                     modifier = Modifier.padding(innerPadding)
                 ) {
-                    composable(Screen.Alertas.route) { AlertasPlaceholder() }
+
+                    // --- AQUÍ CONECTAMOS TUS PANTALLAS ---
+
+                    // 1. DASHBOARD DE ALERTAS (Reemplaza al Placeholder)
+                    composable(Screen.Alertas.route) {
+                        val dashboardViewModel: AlertsDashboardViewModel = viewModel()
+                        AlertsDashboardScreen(
+                            viewModel = dashboardViewModel,
+                            onMenuClick = { scope.launch { drawerState.open() } },
+                            onNavigateToAlertsHistory = {
+                                modulesNavController.navigate(Screen.AlertasHistorial.route)
+                            },
+                            onNavigateToCriticalCases = { /* TODO */ },
+                            onNavigateToSettings = {
+                                modulesNavController.navigate(Screen.Configuracion.route)
+                            }
+                        )
+                    }
+
+                    // 2. HISTORIAL DE ALERTAS (US-13)
+                    composable(Screen.AlertasHistorial.route) {
+                        val historyViewModel: AlertsHistoryViewModel = viewModel()
+                        AlertsHistoryScreen(
+                            viewModel = historyViewModel,
+                            onMenuClick = { scope.launch { drawerState.open() } }
+                        )
+                    }
+
+                    // 3. NOTIFICACIONES EMAIL (US-14)
+                    composable(Screen.NotificacionesEmail.route) {
+                        val emailViewModel: EmailNotificationsViewModel = viewModel()
+                        EmailNotificationsScreen(
+                            viewModel = emailViewModel,
+                            onMenuClick = { scope.launch { drawerState.open() } }
+                        )
+                    }
+
+                    // --- PANTALLAS DE TUS COMPAÑEROS ---
                     composable(Screen.Dashboard.route) { DashboardPlaceholder() }
                     composable(Screen.Reportes.route) {
                         DashboardScreen(
@@ -209,8 +284,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
 }
 
 // -------------------------------------------------
-// DrawerMenu, BottomBar, LoginScreen y Placeholders
-
+// 5. DRAWER MENU (Menú Lateral)
 @Composable
 fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
     Column(
@@ -222,47 +296,41 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
         Text(text = "Menú", style = MaterialTheme.typography.titleLarge)
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Enlaces a módulos
+        // --- ALERTAS (Una sola opción, principal) ---
         Text(
             text = "Alertas",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Alertas.route) }
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Alertas.route) }
+        )
+
+        // --- NOTIFICACIONES ---
+        Text(
+            text = "Notificaciones",
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.NotificacionesEmail.route) }
         )
 
         Text(
-            text = "Dashboard",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Dashboard.route) }
+            text = "Dashboard General",
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Dashboard.route) }
         )
 
         Text(
             text = "Reportes",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Reportes.route) }
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Reportes.route) }
         )
 
         Text(
             text = "Usuarios",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Usuarios.route) }
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Usuarios.route) }
         )
 
         Text(
             text = "Carga",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Carga.route) }
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Carga.route) }
         )
 
         Text(
             text = "Predicción",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Prediccion.route) }
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Prediccion.route) }
         )
 
         Text(
@@ -274,14 +342,11 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
 
         Text(
             text = "Configuración",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Configuracion.route) }
+            modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Configuracion.route) }
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Logout
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -296,44 +361,23 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
     }
 }
 
-
+// --- Placeholders del Equipo ---
 @Composable
-fun AlertasPlaceholder() {
-    PlaceholderScreen(title = "Alertas")
-}
-
+fun DashboardPlaceholder() { PlaceholderScreen(title = "Dashboard") }
 @Composable
-fun DashboardPlaceholder() {
-    PlaceholderScreen(title = "Dashboard")
-}
-
+fun ReportesPlaceholder() { PlaceholderScreen(title = "Reportes") }
 @Composable
-fun ReportesPlaceholder() {
-    PlaceholderScreen(title = "Reportes")
-}
-
+fun UsuariosPlaceholder() { PlaceholderScreen(title = "Usuarios") }
 @Composable
-fun UsuariosPlaceholder() {
-    PlaceholderScreen(title = "Usuarios")
-}
-
+fun CargaPlaceholder() { PlaceholderScreen(title = "Carga") }
 @Composable
-fun CargaPlaceholder() {
-    PlaceholderScreen(title = "Carga")
-}
-
-@Composable
-fun ConfiguracionPlaceholder() {
-    PlaceholderScreen(title = "Configuración")
-}
+fun ConfiguracionPlaceholder() { PlaceholderScreen(title = "Configuración") }
 
 @Composable
 fun PlaceholderScreen(title: String) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

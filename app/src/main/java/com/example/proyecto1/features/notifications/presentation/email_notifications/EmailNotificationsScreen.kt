@@ -1,5 +1,7 @@
 package com.example.proyecto1.features.notifications.presentation.email_notifications
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,17 +31,21 @@ import com.example.proyecto1.features.notifications.presentation.email_notificat
 @Composable
 fun EmailNotificationsScreen(
     // Inyecta el ViewModel
-    viewModel: EmailNotificationsViewModel = viewModel()
+    viewModel: EmailNotificationsViewModel = viewModel(),
+    onMenuClick: () -> Unit
 ) {
     // Observa el estado del ViewModel
     val state by viewModel.uiState.collectAsState()
+
+    // Obtener contexto para abrir la app de correo
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Notificaciones") },
                 navigationIcon = {
-                    IconButton(onClick = { /* TODO: Abrir menú lateral */ }) {
+                    IconButton(onClick = onMenuClick) {
                         Icon(Icons.Default.Menu, contentDescription = "Menú")
                     }
                 }
@@ -160,7 +167,22 @@ fun EmailNotificationsScreen(
                     items(state.historyList, key = { it.id }) { historyItem ->
                         EmailHistoryItem(
                             item = historyItem,
-                            onOpenEmailClick = { /* TODO: Lógica para abrir correo */ }
+                            onOpenEmailClick = {
+                                // ✅ NUEVO: Crear Intent para abrir app de correo
+                                try {
+                                    val emailIntent = Intent(Intent.ACTION_MAIN).apply {
+                                        addCategory(Intent.CATEGORY_APP_EMAIL)
+                                    }
+                                    context.startActivity(emailIntent)
+                                } catch (e: Exception) {
+                                    // ✅ Mostrar Toast si no hay app de correo instalada
+                                    Toast.makeText(
+                                        context,
+                                        "No hay aplicación de correo instalada",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
                         )
                     }
                 }
