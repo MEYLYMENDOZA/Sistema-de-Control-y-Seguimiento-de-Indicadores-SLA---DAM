@@ -1,0 +1,38 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Círculo de fondo -->
+    <path
+        android:fillColor="#0066CC"
+        android:pathData="M100,10A90,90 0 1,1 10,100A90,90 0 0,1 100,10Z" />
+
+    <!-- TCS text (T) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,60L60,140M40,60L80,60"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- TCS text (C) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M110,65A35,35 0 0,0 110,135"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- TCS text (S) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M155,65L145,65A10,10 0 0,0 155,75L145,85A10,10 0 0,1 155,95L145,95A10,10 0 0,0 155,105L145,115A10,10 0 0,1 155,125L145,125"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
+

@@ -3,15 +3,17 @@ package com.example.proyecto1.data.remote.api
 import com.example.proyecto1.data.remote.dto.TendenciaDatosDto
 import com.example.proyecto1.data.remote.dto.AreaFiltroDto
 import com.example.proyecto1.data.remote.dto.TipoSlaDto
-import com.example.proyecto1.data.remote.dto.PeriodoDto
 
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateWrapper
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
+import com.example.proyecto1.presentation.carga.CargaItemData
 
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Query
 
@@ -19,6 +21,11 @@ import retrofit2.http.Query
  * Interfaz de API REST para consumir el backend de SQL Server
  */
 interface SlaApiService {
+
+    // --- Endpoints para Carga de Datos ---
+
+    @POST("api/solicitud/lote") // CORREGIDO: de "solicitudes" a "solicitud"
+    suspend fun subirSolicitudes(@Body solicitudes: List<CargaItemData>): Response<Unit>
 
     // --- Endpoints para Reportes y Predicción ---
 
@@ -36,10 +43,6 @@ interface SlaApiService {
      * El backend SOLO retorna datos agrupados por mes
      * LA APP calcula: regresión lineal, proyección, tendencia
      * GET /api/reporte/solicitudes-tendencia
-     * @param anio Año de análisis - opcional
-     * @param tipoSla Código SLA desde ConfigSla - obligatorio (ej: "SLA001", "SLA002")
-     * @param idArea ID del área - opcional
-     * @return Datos mensuales crudos para cálculo local
      */
     @GET("api/reporte/solicitudes-tendencia")
     suspend fun obtenerSolicitudesTendencia(
@@ -79,11 +82,11 @@ interface SlaApiService {
     suspend fun obtenerTiposSlaDisponibles(): Response<List<TipoSlaDto>>
 
     /**
-     * Obtiene los períodos sugeridos basados en datos disponibles
-     * GET /api/reporte/periodos-sugeridos
+     * Obtiene los períodos (meses) disponibles para un año específico
+     * GET /api/reporte/periodos-disponibles
      */
-    @GET("api/reporte/periodos-sugeridos")
-    suspend fun obtenerPeriodosSugeridos(): Response<List<PeriodoDto>>
+    @GET("api/reporte/periodos-disponibles")
+    suspend fun obtenerPeriodosSugeridos(): Response<List<Int>>
 
     // --- Endpoints para Configuración ---
 
@@ -91,6 +94,6 @@ interface SlaApiService {
     suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>>
 
     @PUT("api/ConfigSla")
-    suspend fun updateConfigSla(@Body configs: List<ConfigSlaUpdateDto>): Response<Unit>
+    suspend fun updateConfigSla(@Body configs: ConfigSlaUpdateWrapper): Response<Unit>
  
 }

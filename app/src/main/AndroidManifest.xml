@@ -6,16 +6,18 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
+        android:name=".Proyecto1App"
+        android:usesCleartextTraffic="true" 
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android.roundIcon="@mipmap/ic_launcher_round"
-        android.supportsRtl="true"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
         android:theme="@style/Theme.Proyecto1"
-        android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -27,7 +29,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Configuración del FileProvider para compartir archivos -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

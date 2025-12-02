@@ -1,1 +1,0 @@
-// Este archivo ha sido unificado en SlaRepository.kt y ya no se utiliza.

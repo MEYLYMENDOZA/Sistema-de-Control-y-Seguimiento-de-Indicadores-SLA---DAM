@@ -1,14 +1,9 @@
 package com.example.proyecto1
 
 import android.app.Application
-import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreSettings
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp // <-- ESTA ANOTACIÓN ES LA CLAVE DE TODO
 class Proyecto1App : Application() {
 
     // Scope para operaciones asíncronas de la aplicación

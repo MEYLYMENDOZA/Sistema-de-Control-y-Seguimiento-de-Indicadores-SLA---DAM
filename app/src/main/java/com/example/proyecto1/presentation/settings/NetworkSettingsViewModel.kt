@@ -2,15 +2,14 @@ package com.example.proyecto1.presentation.settings
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.remote.api.RetrofitClient
+import com.example.proyecto1.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 /**
- * ViewModel para gestionar la configuración de red
+ * ViewModel para gestionar la configuración de red.
+ * La URL de la API ahora se gestiona de forma centralizada y estática a través de BuildConfig.
  */
 class NetworkSettingsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -25,49 +24,32 @@ class NetworkSettingsViewModel(application: Application) : AndroidViewModel(appl
     }
 
     /**
-     * Carga la IP actual
+     * Carga la URL base actual desde BuildConfig.
      */
     private fun loadCurrentIp() {
-        _currentIp.value = RetrofitClient.getCurrentBaseUrl()
+        _currentIp.value = BuildConfig.API_BASE_URL
     }
 
     /**
-     * Fuerza la búsqueda del servidor en la red
+     * La URL es estática, esta función ahora solo confirma la URL configurada.
      */
     fun refreshServerIp() {
-        viewModelScope.launch {
-            _uiState.value = NetworkUiState.Searching
-
-            try {
-                // Usar la versión suspend de refresh
-                RetrofitClient.refresh(getApplication())
-                val newIp = RetrofitClient.getCurrentBaseUrl()
-                _currentIp.value = newIp
-                _uiState.value = NetworkUiState.Success(newIp ?: "No encontrado")
-            } catch (e: Exception) {
-                _uiState.value = NetworkUiState.Error(e.message ?: "Error desconocido")
-            }
-        }
+        _uiState.value = NetworkUiState.Searching
+        val staticUrl = BuildConfig.API_BASE_URL
+        _currentIp.value = staticUrl
+        _uiState.value = NetworkUiState.Success("URL configurada: $staticUrl")
     }
 
     /**
-     * Prueba la conexión actual
+     * Comprueba que la URL de conexión esté definida.
      */
     fun testConnection() {
-        viewModelScope.launch {
-            _uiState.value = NetworkUiState.Testing
-
-            try {
-                // Aquí podrías hacer una llamada real a la API para probar
-                val currentUrl = RetrofitClient.getCurrentBaseUrl()
-                if (currentUrl != null) {
-                    _uiState.value = NetworkUiState.Success("Conexión exitosa: $currentUrl")
-                } else {
-                    _uiState.value = NetworkUiState.Error("No hay servidor configurado")
-                }
-            } catch (e: Exception) {
-                _uiState.value = NetworkUiState.Error("Error de conexión: ${e.message}")
-            }
+        _uiState.value = NetworkUiState.Testing
+        val currentUrl = BuildConfig.API_BASE_URL
+        if (currentUrl.isNotBlank()) {
+            _uiState.value = NetworkUiState.Success("Conexión configurada para: $currentUrl")
+        } else {
+            _uiState.value = NetworkUiState.Error("API_BASE_URL no está definida en build.gradle")
         }
     }
 }
@@ -82,4 +64,3 @@ sealed class NetworkUiState {
     data class Success(val message: String) : NetworkUiState()
     data class Error(val message: String) : NetworkUiState()
 }
-

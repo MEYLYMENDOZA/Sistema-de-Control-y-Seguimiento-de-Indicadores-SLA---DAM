@@ -1,0 +1,248 @@
+package com.example.proyecto1.presentation.carga
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import java.util.Locale
+
+@Composable
+fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
+    val uiState by cargaViewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.userMessage, uiState.errorMessage) {
+        uiState.userMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            cargaViewModel.userMessageShown()
+        }
+        uiState.errorMessage?.let {
+            snackbarHostState.showSnackbar("Error: $it")
+            cargaViewModel.userMessageShown()
+        }
+    }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            uri?.let { cargaViewModel.onFileSelected(context, it) }
+        }
+    )
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF0F2F5))
+                .padding(it)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) { 
+            item { 
+                CargaExcelSection(
+                    uiState = uiState,
+                    onDownloadTemplate = { cargaViewModel.downloadTemplate(context) },
+                    onSelectFile = { filePickerLauncher.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") },
+                    onProcessFile = { cargaViewModel.procesarArchivoSeleccionado(context) },
+                    onClear = { cargaViewModel.clearData() }
+                )
+             }
+
+            if (uiState.isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+
+            uiState.summary?.let { summary ->
+                item { SummarySection(data = summary) }
+                item {
+                    Text(
+                        text = "Datos Cargados para Revisión",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 4.dp, top = 16.dp)
+                    )
+                    Text(
+                        // CORRECCIÓN: Se usa `totalRegistros` en lugar de `total`
+                        text = "Resumen de ${summary.totalRegistros} registros procesados. Vaya a Gestión para editar y subir.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                }
+                item { DataTableHeader() }
+                items(uiState.items) { item ->
+                    DataTableRow(item = item)
+                }
+                item {
+                    Text(
+                        // CORRECIÓN: Se usa `totalRegistros` en lugar de `total`
+                        text = "Mostrando los últimos ${uiState.items.size} registros de ${summary.totalRegistros} totales",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CargaExcelSection(
+    uiState: CargaUiState,
+    onDownloadTemplate: () -> Unit, 
+    onSelectFile: () -> Unit,
+    onProcessFile: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(elevation = CardDefaults.cardElevation(0.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Cargar Archivo Excel", style = MaterialTheme.typography.titleMedium)
+            Text("Sube un archivo (.xlsx o .csv) para pasarlo a la sección de Gestión.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onSelectFile, modifier = Modifier.weight(1.5f), colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
+                    Icon(Icons.Default.UploadFile, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Seleccionar Archivo")
+                }
+                OutlinedButton(onClick = onDownloadTemplate, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Download, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Plantilla")
+                }
+            }
+            
+            AnimatedVisibility(visible = uiState.selectedFileUri != null) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    Text("Archivo seleccionado:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Text(uiState.selectedFileName ?: "", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)){
+                        Button(
+                            onClick = onProcessFile, 
+                            enabled = !uiState.isLoading, 
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Procesar para Gestión")
+                        }
+                        Button(onClick = onClear, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))) {
+                            Icon(Icons.Default.Delete, contentDescription = null)
+                            Text("Limpiar")
+                        }
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            Text("Formato esperado del archivo Excel:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text("Columnas Requeridas:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            Text("• Rol: Nombre del rol o área (texto)\n• Fecha Solicitud: fecha de la solicitud (fecha válida)\n• Fecha Ingreso: fecha de ingreso (fecha válida)\n• Tipo SLA: Debe ser exactamente \"SLA1\" o \"SLA2\"", style = MaterialTheme.typography.bodySmall, lineHeight = 20.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("Columnas Opcionales:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            Text("• Código: Código único de solicitud", style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(Color(0xFFFFF3E0), RoundedCornerShape(4.dp)).padding(8.dp)) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFFA726))
+                Spacer(Modifier.width(8.dp))
+                Text("Importante: El sistema validará todas las columnas y datos. Si se detecta algún error, el archivo será rechazado completamente.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF616161), lineHeight = 18.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun SummarySection(data: CargaSummaryData) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        // CORRECIÓN: Se usa `totalRegistros` en lugar de `total`
+        SummaryCard("Total Registros", data.totalRegistros.toString(), Icons.AutoMirrored.Filled.Article, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
+        SummaryCard("Cumplen", data.cumplen.toString(), Icons.Default.CheckCircle, Color(0xFF66BB6A), modifier = Modifier.weight(1f))
+        SummaryCard("No Cumplen", data.noCumplen.toString(), Icons.Default.Cancel, Color(0xFFEF5350), modifier = Modifier.weight(1f))
+        // CORRECIÓN: Se usa `porcCumplimiento` en lugar de `cumplimiento`
+        SummaryCard("% Cumplimiento", String.format(Locale.getDefault(), "%.1f%%", data.porcCumplimiento), Icons.Default.Analytics, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+fun SummaryCard(title: String, value: String, icon: ImageVector, iconColor: Color, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, elevation = CardDefaults.cardElevation(0.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(32.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun DataTableHeader() {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Código", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        Text("Rol", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        Text("Tipo SLA", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        Text("% Cumplimiento", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        Text("Días Transcurridos", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        Text("Cantidad por Rol", modifier = Modifier.weight(1.5f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        Text("Estado", modifier = Modifier.weight(1f), color = Color.Gray, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun DataTableRow(item: CargaItemData) {
+    Surface(shadowElevation = 0.dp, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(vertical = 4.dp), color = Color.White) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(item.codigo, modifier = Modifier.weight(1.5f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(item.rol, modifier = Modifier.weight(1.5f), fontSize = 14.sp)
+            Text(item.tipoSla, modifier = Modifier.weight(1f), fontSize = 14.sp)
+            Text(String.format(Locale.getDefault(), "%.1f%%", item.cumplimiento), modifier = Modifier.weight(1.5f), fontSize = 14.sp)
+            Pill(text = "${item.diasTranscurridos} días", color = if (item.estado == "Cumple") Color(0xFFE8F5E9) else Color(0xFFFFEBEE), textColor = if (item.estado == "Cumple") Color(0xFF2E7D32) else Color(0xFFC62828), modifier = Modifier.weight(1.5f))
+            Text("${item.cantidadPorRol} personas", modifier = Modifier.weight(1.5f), fontSize = 14.sp)
+            Pill(text = item.estado, color = if (item.estado == "Cumple") Color(0xFFE8F5E9) else Color(0xFFFFEBEE), textColor = if (item.estado == "Cumple") Color(0xFF2E7D32) else Color(0xFFC62828), modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+fun Pill(text: String, color: Color, textColor: Color, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.clip(RoundedCornerShape(12.dp)).background(color).padding(horizontal = 8.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF0F2F5)
+@Composable
+fun CargaScreenPreview() {
+    // Dummy ViewModel for preview purposes
+}

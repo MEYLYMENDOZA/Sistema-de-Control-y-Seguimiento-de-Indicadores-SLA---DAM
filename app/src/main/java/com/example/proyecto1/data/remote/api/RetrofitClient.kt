@@ -1,21 +1,14 @@
 package com.example.proyecto1.data.remote.api
 
-import android.content.Context
-import android.util.Log
-import androidx.core.content.edit
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.example.proyecto1.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.net.HttpURLConnection
-import java.net.NetworkInterface
-import java.net.URL
 import java.util.concurrent.TimeUnit
 
 /**
- * Cliente Retrofit con DETECCIÓN AUTOMÁTICA de IP del servidor
+ * Cliente Retrofit unificado que utiliza la URL desde BuildConfig.
  */
 object RetrofitClient {
 
@@ -236,22 +229,22 @@ object RetrofitClient {
         }
         OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
-    private fun createRetrofit(baseUrl: String): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(baseUrl)
+    private val retrofitInstance: Retrofit by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
 
     val slaApiService: SlaApiService by lazy {
-        getRetrofitInstance().create(SlaApiService::class.java)
+        retrofitInstance.create(SlaApiService::class.java)
     }
 
     val apiService: com.example.proyecto1.data.remote.ApiService by lazy {
