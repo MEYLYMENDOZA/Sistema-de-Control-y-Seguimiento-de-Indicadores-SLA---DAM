@@ -54,10 +54,6 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.7.8"
-    }
-
     packaging {
         // Configuración de empaquetado más permisiva para Apache POI
         resources.excludes.add("/META-INF/services/javax.xml.stream.XMLInputFactory")

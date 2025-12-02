@@ -7,10 +7,12 @@ import com.example.proyecto1.features.notifications.data.model.AlertaCreateDto
 import com.example.proyecto1.features.notifications.data.model.PersonalDto
 import com.example.proyecto1.features.notifications.domain.model.AlertCriticality
 import com.example.proyecto1.features.notifications.domain.model.VisualAlert
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // 1. Define el "Estado"
 data class AlertsHistoryState(
@@ -22,14 +24,19 @@ data class AlertsHistoryState(
 )
 
 // 2. ViewModel Inteligente
-class AlertsHistoryViewModel : ViewModel() {
+@HiltViewModel
+class AlertsHistoryViewModel @Inject constructor(
+    private val retrofitClient: RetrofitClient
+) : ViewModel() {
+
+    private val apiService get() = retrofitClient.apiService
     // Función para el botón "Verificar Cumplimiento"
     fun verificarCumplimientoSla() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // 1. Ejecutar el motor en el servidor
-                val response = RetrofitClient.apiService.procesarSlas()
+                val response = apiService.procesarSlas()
 
                 if (response.isSuccessful) {
                     println("Motor SLA ejecutado con éxito.")
@@ -61,7 +68,7 @@ class AlertsHistoryViewModel : ViewModel() {
             try {
                 // INTENTO 1: CONEXIÓN REAL
                 // Llamamos a la API
-                val alertasDto = RetrofitClient.apiService.getAlertas()
+                val alertasDto = apiService.getAlertas()
 
                 // Convertimos a datos de UI
                 val realAlerts = alertasDto.map { it.toDomain() }
@@ -109,7 +116,7 @@ class AlertsHistoryViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 // Llamamos a la API
-                val personas = RetrofitClient.apiService.getPersonal()
+                val personas = apiService.getPersonal()
                 _uiState.update { it.copy(personalList = personas) }
             } catch (e: Exception) {
                 println("Error cargando personal: ${e.message}")
@@ -125,7 +132,7 @@ class AlertsHistoryViewModel : ViewModel() {
                 val idInt = alertId.toInt()
 
                 // 2. Llamamos a la API para borrar en SQL Server
-                val response = RetrofitClient.apiService.deleteAlerta(idInt)
+                val response = apiService.deleteAlerta(idInt)
 
                 if (response.isSuccessful) {
                     println("Alerta eliminada de la BD correctamente.")
@@ -147,7 +154,7 @@ class AlertsHistoryViewModel : ViewModel() {
             }
         }
     }
-    // Modificamos la función para recibir TRES parámetros
+
     fun crearAlertaPersonalizada(mensajeUsuario: String, responsable: String, nivel: String) {
         viewModelScope.launch {
 
@@ -166,7 +173,7 @@ class AlertsHistoryViewModel : ViewModel() {
 
             try {
                 _uiState.update { it.copy(isLoading = true) }
-                val response = RetrofitClient.apiService.createAlerta(nuevaAlerta)
+                val response = apiService.createAlerta(nuevaAlerta)
 
                 if (response.isSuccessful) {
                     println("¡Alerta creada con responsable y nivel!")

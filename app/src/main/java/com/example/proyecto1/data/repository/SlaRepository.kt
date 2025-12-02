@@ -5,6 +5,7 @@ import com.example.proyecto1.data.remote.api.RetrofitClient
 import com.example.proyecto1.data.remote.api.SlaApiService
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateWrapper
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import com.example.proyecto1.domain.math.LinearRegression
 import com.example.proyecto1.presentation.prediccion.SlaDataPoint
@@ -26,7 +27,11 @@ import java.util.*
 class SlaRepository {
 
     private val TAG = "SlaRepository"
-    private val apiService: SlaApiService = RetrofitClient.slaApiService
+    private val apiService: SlaApiService get() = try {
+        RetrofitClient.slaApiService
+    } catch (e: Exception) {
+        throw IllegalStateException("SlaApiService no inicializado. Error: ${e.message}", e)
+    }
 
     // --- Métodos para la pantalla de Reportes ---
 
@@ -434,7 +439,8 @@ class SlaRepository {
     suspend fun updateConfigSla(configs: List<ConfigSlaUpdateDto>): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val response = apiService.updateConfigSla(configs)
+                val wrapper = ConfigSlaUpdateWrapper(configs)
+                val response = apiService.updateConfigSla(wrapper)
                 if (response.isSuccessful) {
                     Result.success(Unit)
                 } else {

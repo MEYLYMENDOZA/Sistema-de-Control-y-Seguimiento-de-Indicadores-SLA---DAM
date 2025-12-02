@@ -29,11 +29,9 @@ data class EstadisticasSla(
 
 @HiltViewModel
 class PrediccionViewModel @Inject constructor(
-    private val repository: SlaRepository,
-    private val application: Application
+    private val repository: SlaRepository
 ) : ViewModel() {
 
-    private val pdfExporter = PdfExporter(application)
 
     private val _prediccion = MutableStateFlow<Double?>(null)
     val prediccion: StateFlow<Double?> get() = _prediccion
@@ -95,9 +93,9 @@ class PrediccionViewModel @Inject constructor(
             try {
                 val anios = repository.obtenerAniosDisponibles()
                 _aniosDisponibles.value = anios
-                Log.d("PrediccionViewModel", "✅ Anios disponibles cargados: $anios")
+                Log.d("PrediccionViewModel", "Anios disponibles cargados: $anios")
             } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar anios disponibles", e)
+                Log.e("PrediccionViewModel", "Error al cargar anios disponibles", e)
             }
         }
     }
@@ -107,9 +105,26 @@ class PrediccionViewModel @Inject constructor(
             try {
                 val meses = repository.obtenerMesesDisponibles(anio)
                 _mesesDisponibles.value = meses
-                Log.d("PrediccionViewModel", "✅ Meses disponibles para $anio: $meses")
+                Log.d("PrediccionViewModel", "Meses disponibles para $anio: $meses")
             } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar meses disponibles", e)
+                Log.e("PrediccionViewModel", "Error al cargar meses disponibles", e)
+            }
+        }
+    }
+
+    fun cargarTiposSlaDisponibles() {
+        viewModelScope.launch {
+            try {
+                val tipos = repository.obtenerTiposSlaDisponibles()
+                _tiposSlaDisponibles.value = tipos
+                Log.d("PrediccionViewModel", "Tipos SLA cargados")
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "Error al cargar tipos SLA", e)
+                // Cargar tipos por defecto si falla
+                _tiposSlaDisponibles.value = listOf(
+                    "SLA001" to "SLA General",
+                    "SLA002" to "SLA Crítico"
+                )
             }
         }
     }
@@ -121,7 +136,6 @@ class PrediccionViewModel @Inject constructor(
 
     fun cargarYPredecir() {
         cargarYPredecir(
-            tipoSla = filtroTipoSla,
             mesInicio = filtroMesInicio,
             mesFin = filtroMesFin,
             anio = filtroAnio,
@@ -139,7 +153,6 @@ class PrediccionViewModel @Inject constructor(
         filtroMesFin = mesFin
         filtroAnio = anio
         filtroUltimosMeses = meses
-        filtroTipoSla = tipoSla
 
         viewModelScope.launch {
             _cargando.value = true

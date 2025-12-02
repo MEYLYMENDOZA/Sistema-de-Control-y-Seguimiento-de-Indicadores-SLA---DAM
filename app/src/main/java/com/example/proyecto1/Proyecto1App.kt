@@ -1,54 +1,37 @@
 package com.example.proyecto1
 
 import android.app.Application
+import android.util.Log
+import com.example.proyecto1.data.remote.api.RetrofitClient
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-@HiltAndroidApp // <-- ESTA ANOTACIÓN ES LA CLAVE DE TODO
+@HiltAndroidApp
 class Proyecto1App : Application() {
 
-    // Scope para operaciones asíncronas de la aplicación
+    @Inject
+    lateinit var retrofitClient: RetrofitClient
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
 
-        android.util.Log.d("Proyecto1App", "Application onCreate - iniciando")
-        try {
-            // Inicializa Firebase con la configuración provista por google-services.json
-            FirebaseApp.initializeApp(this)
-            android.util.Log.d("Proyecto1App", "FirebaseApp.initializeApp OK")
-
-            // Configurar Firestore con persistencia local habilitada
-            val settings = FirebaseFirestoreSettings.Builder()
-                .setPersistenceEnabled(true)
-                .build()
-
-            FirebaseFirestore.getInstance().firestoreSettings = settings
-            android.util.Log.d("Proyecto1App", "Firestore settings aplicados")
-
-            // ✅ Inicializar Retrofit de forma ASÍNCRONA para no bloquear el hilo principal
-            android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
-            android.util.Log.d("Proyecto1App", "🔍 INICIANDO DETECCIÓN AUTOMÁTICA DE API")
-            android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
-            applicationScope.launch {
-                try {
-                    com.example.proyecto1.data.remote.api.RetrofitClient.initialize(this@Proyecto1App)
-                    val baseUrl = com.example.proyecto1.data.remote.api.RetrofitClient.getCurrentBaseUrl()
-                    android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
-                    android.util.Log.d("Proyecto1App", "✅ API CONFIGURADA EXITOSAMENTE")
-                    android.util.Log.d("Proyecto1App", "📍 URL: $baseUrl")
-                    android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
-                } catch (e: Exception) {
-                    android.util.Log.e("Proyecto1App", "═══════════════════════════════════════════")
-                    android.util.Log.e("Proyecto1App", "❌ ERROR AL CONFIGURAR API")
-                    android.util.Log.e("Proyecto1App", "Error: ${e.message}")
-                    android.util.Log.e("Proyecto1App", "═══════════════════════════════════════════", e)
-                }
+        applicationScope.launch {
+            try {
+                retrofitClient.initialize(this@Proyecto1App)
+                Log.d("Proyecto1App", "✅ RetrofitClient inicializado")
+            } catch (e: Exception) {
+                Log.e("Proyecto1App", "❌ Error inicializando RetrofitClient", e)
             }
-
-        } catch (e: Exception) {
-            // Log del error en caso de fallo de inicialización
-            android.util.Log.e("Proyecto1App", "Error al inicializar Firebase", e)
         }
+    }
+
+    companion object {
+        private const val TAG = "Proyecto1App"
     }
 }

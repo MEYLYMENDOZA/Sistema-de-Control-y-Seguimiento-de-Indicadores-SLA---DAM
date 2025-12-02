@@ -3,10 +3,12 @@ package com.example.proyecto1.features.notifications.presentation.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto1.data.remote.api.RetrofitClient
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // 1. Estado del Dashboard
 data class AlertsDashboardState(
@@ -18,7 +20,12 @@ data class AlertsDashboardState(
 )
 
 // 2. ViewModel
-class AlertsDashboardViewModel : ViewModel() {
+@HiltViewModel
+class AlertsDashboardViewModel @Inject constructor(
+    private val retrofitClient: RetrofitClient
+) : ViewModel() {
+
+    private val apiService get() = retrofitClient.apiService
 
     private val _uiState = MutableStateFlow(AlertsDashboardState())
     val uiState = _uiState.asStateFlow()
@@ -34,18 +41,20 @@ class AlertsDashboardViewModel : ViewModel() {
 
             try {
                 // 1. Llamamos a la API (Trae todas las alertas)
-                val alertasDto = RetrofitClient.apiService.getAlertas()
+                val alertasDto = apiService.getAlertas()
 
                 // 2. CALCULAMOS LOS NÚMEROS REALES
                 // Total de alertas activas
                 val total = alertasDto.size
 
                 // Cuántas dicen "Alto" (Críticas)
-                val criticas = alertasDto.count { it.nivel.equals("Alto", ignoreCase = true) }
+                val criticas = alertasDto.count { alerta ->
+                    alerta.nivel.equals("Alto", ignoreCase = true)
+                }
 
                 // Cuántas dicen "Bajo" o "Medio" (Cerca del Límite/Advertencia)
-                val advertencias = alertasDto.count {
-                    it.nivel.equals("Bajo", ignoreCase = true) || it.nivel.equals("Medio", ignoreCase = true)
+                val advertencias = alertasDto.count { alerta ->
+                    alerta.nivel.equals("Bajo", ignoreCase = true) || alerta.nivel.equals("Medio", ignoreCase = true)
                 }
 
                 // 3. CALCULAR CUMPLIMIENTO DINÁMICAMENTE

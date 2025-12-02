@@ -23,6 +23,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.nativeCanvas
+import java.util.Locale
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 
@@ -32,8 +33,6 @@ private val GrisClaro = Color(0xFFF4F6F8)
 private val GrisTexto = Color(0xFF616161)
 private val Verde = Color(0xFF4CAF50)
 private val Rojo = Color(0xFFE53935)
-private val Amarillo = Color(0xFFFFA726)
-private val FondoGris = Color(0xFFF5F7FA)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +103,6 @@ fun PrediccionScreen(
             val mesInicio = mesToIndex(mesInicioSeleccionado)
             val mesFin = mesToIndex(mesFinSeleccionado)
             vm.cargarYPredecir(
-                tipoSla = tipoSlaSeleccionado,
                 mesInicio = mesInicio,
                 mesFin = mesFin,
                 anio = anioInt,
@@ -145,7 +143,6 @@ fun PrediccionScreen(
                     val mesFin = mesToIndex(mesFinSeleccionado)
                     val anioInt = anioSeleccionado.toIntOrNull()
                     vm.cargarYPredecir(
-                        tipoSla = tipoSlaSeleccionado,
                         mesInicio = mesInicio,
                         mesFin = mesFin,
                         anio = anioInt,
@@ -226,7 +223,7 @@ fun PrediccionScreen(
                 AccionesUsuario(
                     onRecalcular = { vm.cargarYPredecir() },
                     onExportar = { vm.exportarResultado() },
-                    habilitado = !cargando
+                    habilitado = cargando != true
                 )
 
                 // Pie de pantalla
@@ -948,8 +945,8 @@ private fun AccionesUsuario(
 private fun GraficoHistoricoYPrediccion(
     datosHistoricos: List<SlaDataPoint>,
     prediccion: Double?,
-    slope: Double?,
-    intercept: Double?,
+    @Suppress("UNUSED_PARAMETER") slope: Double?,
+    @Suppress("UNUSED_PARAMETER") intercept: Double?,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -1095,7 +1092,7 @@ private fun GraficoHistoricoYPrediccion(
                     // Etiqueta Y
                     drawContext.canvas.nativeCanvas.apply {
                         drawText(
-                            String.format("%.0f%%", valor),
+                            String.format(Locale.US, "%.0f%%", valor),
                             paddingLeft - 15f,  // ← Ajustado de -10f a -15f
                             y + 8f,  // ← Ajustado de +5f a +8f
                             android.graphics.Paint().apply {
@@ -1173,7 +1170,7 @@ private fun GraficoHistoricoYPrediccion(
                     )
 
                     // Fondo para la etiqueta de predicción
-                    val labelText = String.format("%.1f%%", prediccion)
+                    val labelText = String.format(Locale.US, "%.1f%%", prediccion)
                     val labelY = y2 - 30f  // ← Aumentado de -25f a -30f
 
                     // Fondo blanco con borde verde (más grande)
@@ -1240,7 +1237,7 @@ private fun GraficoHistoricoYPrediccion(
                         // Valor del mes (segunda línea)
                         drawContext.canvas.nativeCanvas.apply {
                             drawText(
-                                String.format("%.0f%%", punto.valor),
+                                String.format(Locale.US, "%.0f%%", punto.valor),
                                 x,
                                 y + 22f,
                                 android.graphics.Paint().apply {
@@ -1307,7 +1304,7 @@ private fun GraficoHistoricoYPrediccion(
                     // Valor predicho (tercera línea - destacado)
                     drawContext.canvas.nativeCanvas.apply {
                         drawText(
-                            String.format("%.1f%%", prediccion),
+                            String.format(Locale.US, "%.1f%%", prediccion),
                             x,
                             y + 47f,  // ← Aumentado de 38f a 47f
                             android.graphics.Paint().apply {
@@ -1457,7 +1454,7 @@ private fun TarjetaComparacion(
                 )
             }
 
-            Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+                HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
             // Fila de comparación
             Row(
@@ -1476,7 +1473,7 @@ private fun TarjetaComparacion(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${String.format("%.1f", prediccion)}%",
+                        text = "${String.format(Locale.US, "%.1f", prediccion)}%",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = AzulCorporativo
@@ -1503,7 +1500,7 @@ private fun TarjetaComparacion(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${String.format("%.1f", valorReal)}%",
+                        text = "${String.format(Locale.US, "%.1f", valorReal)}%",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = Verde
@@ -1533,8 +1530,8 @@ private fun TarjetaComparacion(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Diferencia: ${if (esPositivo) "+" else ""}${String.format("%.2f", diferencia)}% " +
-                                "(${if (esPositivo) "+" else ""}${String.format("%.1f", porcentajeDiferencia)}%)",
+                        text = "Diferencia: ${if (esPositivo) "+" else ""}${String.format(Locale.US, "%.2f", diferencia)}% " +
+                                "(${if (esPositivo) "+" else ""}${String.format(Locale.US, "%.1f", porcentajeDiferencia)}%)",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = colorDiferencia

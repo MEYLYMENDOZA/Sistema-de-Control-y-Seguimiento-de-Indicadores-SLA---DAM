@@ -1,45 +1,50 @@
 package com.example.proyecto1.data.remote.api
 
+import android.content.Context
+import android.util.Log
 import com.example.proyecto1.BuildConfig
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.NetworkInterface
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 
-/**
- * Cliente Retrofit unificado que utiliza la URL desde BuildConfig.
- */
-object RetrofitClient {
+@Singleton
+class RetrofitClient @Inject constructor(@ApplicationContext private val context: Context) {
 
-    private const val TAG = "RetrofitClient_API"
-    private const val API_PORT = 5120
-    private const val HEALTH_ENDPOINT = "/api/reporte/tipos-sla-disponibles"
-    private const val PREFS_NAME = "api_config"
-    private const val KEY_LAST_IP = "last_working_ip"
-    private const val CONNECTION_TIMEOUT = 2000
+    private val TAG = "RetrofitClient_API"
+    private val API_PORT = 5120
+    private val HEALTH_ENDPOINT = "/api/reporte/tipos-sla-disponibles"
+    private val PREFS_NAME = "api_config"
+    private val KEY_LAST_IP = "last_working_ip"
+    private val CONNECTION_TIMEOUT = 2000
 
     private val COMMON_IPS = listOf(
-        "192.168.100.4",    // 👈 IP ACTUAL - PRUEBA PRIMERO
-        "172.19.5.121",     // Red WiFi común 1
-        "172.19.7.121",     // Red WiFi común 2
-        "172.19.7.213",     // Red WiFi común 3
-        "192.168.1.100",    // Router común
-        "192.168.0.100",    // Router común
-        "192.168.18.246",   // Red adicional
-        "10.0.0.100",       // Red corporativa
-        "10.0.2.2"          // Emulador Android
+        "192.168.100.4",
+        "172.19.5.121",
+        "172.19.7.121",
+        "172.19.7.213",
+        "192.168.1.100",
+        "192.168.0.100",
+        "192.168.18.246",
+        "10.0.0.100",
+        "10.0.2.2"
     )
 
     private var currentBaseUrl: String? = null
     private var retrofitInstance: Retrofit? = null
+
     @Volatile
     private var isInitializing = false
 
-    /**
-     * Inicializa el cliente de forma asíncrona (suspendible)
-     * Llámalo desde una coroutine
-     */
     suspend fun initialize(context: Context) {
         if (isInitializing) {
             Log.d(TAG, "⏳ Inicialización ya en progreso...")
@@ -56,21 +61,13 @@ object RetrofitClient {
         }
     }
 
-    /**
-     * Refresca la conexión buscando el servidor de nuevo
-     */
     suspend fun refresh(context: Context) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            remove(KEY_LAST_IP)
-        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_LAST_IP).apply()
         currentBaseUrl = detectServerIp(context.applicationContext)
         Log.d(TAG, "🔄 API actualizada a: $currentBaseUrl")
         retrofitInstance = createRetrofit(currentBaseUrl!!)
     }
 
-    /**
-     * Obtiene la instancia de Retrofit, inicializándola con IP por defecto si es necesario
-     */
     private fun getRetrofitInstance(): Retrofit {
         if (retrofitInstance == null) {
             Log.w(TAG, "⚠️ Retrofit no inicializado, usando IP por defecto")
@@ -85,7 +82,6 @@ object RetrofitClient {
         Log.d(TAG, "🔍 INICIANDO BÚSQUEDA DE SERVIDOR API")
         Log.d(TAG, "🔍 ========================================")
 
-        // Paso 1: Intentar última IP exitosa
         val lastIp = getLastWorkingIp(context)
         if (lastIp != null) {
             Log.d(TAG, "📋 Última IP guardada: $lastIp")
@@ -99,7 +95,6 @@ object RetrofitClient {
             Log.d(TAG, "📋 No hay IP guardada")
         }
 
-        // Paso 2: Probar IPs comunes
         Log.d(TAG, "🔎 Probando IPs comunes...")
         for (ip in COMMON_IPS) {
             Log.d(TAG, "  Probando: $ip")
@@ -110,7 +105,6 @@ object RetrofitClient {
             }
         }
 
-        // Paso 3: Escanear subred local
         val localIp = getLocalIpAddress()
         if (localIp != null) {
             Log.d(TAG, "📱 IP del dispositivo: $localIp")
@@ -127,7 +121,6 @@ object RetrofitClient {
             Log.w(TAG, "⚠️ No se pudo obtener la IP local del dispositivo")
         }
 
-        // Paso 4: Fallback
         val fallbackUrl = lastIp?.let { formatUrl(it) } ?: "http://192.168.100.4:$API_PORT/"
         Log.w(TAG, "⚠️ ========================================")
         Log.w(TAG, "⚠️ NO SE ENCONTRÓ SERVIDOR")
@@ -157,7 +150,6 @@ object RetrofitClient {
             connection.disconnect()
             isSuccess
         } catch (e: Exception) {
-            // Silencioso, es normal que falle en IPs sin servidor
             Log.d(TAG, "    ✗ ${e.message?.take(50) ?: "No responde"}")
             false
         }
@@ -191,7 +183,6 @@ object RetrofitClient {
     private suspend fun scanSubnet(subnet: String): String? = withContext(Dispatchers.IO) {
         Log.d(TAG, "🔎 Escaneando subred: $subnet.*")
 
-        // IPs más comunes para servidores locales
         val commonServerIps = listOf(
             1, 2, 100, 101, 102, 103, 104, 105, 110, 111,
             120, 121, 200, 201, 213, 246, 254
@@ -213,9 +204,7 @@ object RetrofitClient {
     private fun formatUrl(ip: String) = "http://$ip:$API_PORT/"
 
     private fun saveLastWorkingIp(context: Context, ip: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
-            putString(KEY_LAST_IP, ip)
-        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_LAST_IP, ip).apply()
     }
 
     private fun getLastWorkingIp(context: Context): String? {
@@ -223,28 +212,26 @@ object RetrofitClient {
             .getString(KEY_LAST_IP, null)
     }
 
-    private val okHttpClient: OkHttpClient by lazy {
+    private fun createRetrofit(baseUrl: String): Retrofit {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-        OkHttpClient.Builder()
+        val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
-    }
 
-    private val retrofitInstance: Retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl(BuildConfig.API_BASE_URL)
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
 
     val slaApiService: SlaApiService by lazy {
-        retrofitInstance.create(SlaApiService::class.java)
+        getRetrofitInstance().create(SlaApiService::class.java)
     }
 
     val apiService: com.example.proyecto1.data.remote.ApiService by lazy {

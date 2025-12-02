@@ -6,14 +6,12 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Report
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -21,11 +19,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 // --- IMPORTS DE TUS PANTALLAS (BRAYAN) ---
@@ -41,11 +34,13 @@ import com.example.proyecto1.ui.login.LoginScreen
 import com.example.proyecto1.ui.report.ConfigurationScreen
 import com.example.proyecto1.ui.report.DashboardScreen
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
+import com.example.proyecto1.presentation.session.SessionViewModel
+import com.example.proyecto1.presentation.carga.CargaScreen
+import com.example.proyecto1.presentation.gestion.GestionScreen
+import com.example.proyecto1.presentation.prediccion.PrediccionScreen
+import com.example.proyecto1.presentation.tendencia.TendenciaScreen
 
 
-// DataStore delegate
-private val Context.dataStore by preferencesDataStore(name = "user_prefs")
 
 // -------------------------------------------------
 // 1. RUTAS DE PANTALLAS (Screen routes)
@@ -72,30 +67,6 @@ sealed class Screen(val route: String, val label: String) {
 
 @AndroidEntryPoint // <-- ESTA ANOTACIÓN ES LA CLAVE DE TODO
 // -------------------------------------------------
-// 2. VIEWMODEL DE SESIÓN (LOGIN)
-class SessionViewModel(application: Application) : AndroidViewModel(application) {
-    private val appContext = getApplication<Application>().applicationContext
-    private val IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
-
-    suspend fun isUserLoggedIn(): Boolean = appContext.dataStore.data
-        .map { it[IS_LOGGED_IN] ?: false }
-        .first()
-
-    fun saveSession() { viewModelScope.launch { appContext.dataStore.edit { it[IS_LOGGED_IN] = true } } }
-    fun clearSession() { viewModelScope.launch { appContext.dataStore.edit { it[IS_LOGGED_IN] = false } } }
-}
-
-class SessionViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(SessionViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return SessionViewModel(application) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
-
-// -------------------------------------------------
 // 3. MAIN ACTIVITY
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -113,7 +84,7 @@ class MainActivity : ComponentActivity() {
 // 4. APP ROOT (Lógica de Navegación Principal)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel(), navViewModel: NavigationViewModel = hiltViewModel()) {
+fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel()) {
     val isLoggedIn = remember { mutableStateOf<Boolean?>(null) }
 
     if (isLoggedIn.value == null) {
@@ -136,12 +107,12 @@ fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel(), navViewModel: 
         val modulesNavController = rememberNavController()
         val drawerState = rememberDrawerState(DrawerValue.Closed)
         val scope = rememberCoroutineScope()
-        val isGestionEnabled by navViewModel.isGestionDeDatosEnabled.collectAsState()
+        val isGestionEnabled = remember { mutableStateOf(true) }
 
         ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
             ModalDrawerSheet {
                 DrawerMenu(
-                    isGestionEnabled = isGestionEnabled,
+                    isGestionEnabled = isGestionEnabled.value,
                     onNavigateTo = { route ->
                         scope.launch { drawerState.close() }
                         modulesNavController.navigate(route) { launchSingleTop = true }
@@ -197,7 +168,7 @@ fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel(), navViewModel: 
 
                     // 1. DASHBOARD DE ALERTAS (Reemplaza al Placeholder)
                     composable(Screen.Alertas.route) {
-                        val dashboardViewModel: AlertsDashboardViewModel = viewModel()
+                        val dashboardViewModel: AlertsDashboardViewModel = hiltViewModel()
                         AlertsDashboardScreen(
                             viewModel = dashboardViewModel,
                             onMenuClick = { scope.launch { drawerState.open() } },
@@ -213,7 +184,7 @@ fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel(), navViewModel: 
 
                     // 2. HISTORIAL DE ALERTAS (US-13)
                     composable(Screen.AlertasHistorial.route) {
-                        val historyViewModel: AlertsHistoryViewModel = viewModel()
+                        val historyViewModel: AlertsHistoryViewModel = hiltViewModel()
                         AlertsHistoryScreen(
                             viewModel = historyViewModel,
                             onMenuClick = { scope.launch { drawerState.open() } }
@@ -222,7 +193,7 @@ fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel(), navViewModel: 
 
                     // 3. NOTIFICACIONES EMAIL (US-14)
                     composable(Screen.NotificacionesEmail.route) {
-                        val emailViewModel: EmailNotificationsViewModel = viewModel()
+                        val emailViewModel: EmailNotificationsViewModel = hiltViewModel()
                         EmailNotificationsScreen(
                             viewModel = emailViewModel,
                             onMenuClick = { scope.launch { drawerState.open() } }
@@ -282,7 +253,7 @@ fun DrawerMenu(isGestionEnabled: Boolean, onNavigateTo: (String) -> Unit, onLogo
             modifier = Modifier.fillMaxWidth().clickable { onLogout() }.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.ExitToApp, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = "Cerrar sesión")
         }
@@ -293,31 +264,19 @@ fun DrawerMenu(isGestionEnabled: Boolean, onNavigateTo: (String) -> Unit, onLogo
 
 @Composable
 fun DashboardPlaceholder() { PlaceholderScreen(title = "Dashboard") }
-fun AlertasPlaceholder() { PlaceholderScreen(title = "Alertas") }
 
 @Composable
 fun ReportesPlaceholder() { PlaceholderScreen(title = "Reportes") }
+
 @Composable
 fun UsuariosPlaceholder() { PlaceholderScreen(title = "Usuarios") }
+
 @Composable
 fun CargaPlaceholder() { PlaceholderScreen(title = "Carga") }
+
 @Composable
 fun ConfiguracionPlaceholder() { PlaceholderScreen(title = "Configuración") }
 
-@Composable
-fun PlaceholderScreen(title: String) {
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = title, style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Contenido de $title...")
-        }
-    }
-}
 @Composable
 fun PlaceholderScreen(title: String) {
     Surface(modifier = Modifier.fillMaxSize()) {

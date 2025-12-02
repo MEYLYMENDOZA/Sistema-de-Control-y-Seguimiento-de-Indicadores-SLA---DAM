@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.proyecto1.data.remote.api.RetrofitClient
 import com.example.proyecto1.features.notifications.domain.model.EmailNotificationHistory
 import com.example.proyecto1.features.notifications.domain.model.NotificationStatus
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class EmailNotificationsState(
     val sentCount: Int = 0,
@@ -18,7 +20,12 @@ data class EmailNotificationsState(
     val isLoading: Boolean = false
 )
 
-class EmailNotificationsViewModel : ViewModel() {
+@HiltViewModel
+class EmailNotificationsViewModel @Inject constructor(
+    private val retrofitClient: RetrofitClient
+) : ViewModel() {
+
+    private val apiService get() = retrofitClient.apiService
 
     private val _uiState = MutableStateFlow(EmailNotificationsState())
     val uiState = _uiState.asStateFlow()
@@ -33,10 +40,12 @@ class EmailNotificationsViewModel : ViewModel() {
 
             try {
                 // 1. LLAMADA A LA API REAL
-                val reportesDto = RetrofitClient.apiService.getReportes()
+                val reportesDto = apiService.getReportes()
 
                 // 2. CONVERSIÓN
-                val historialReal = reportesDto.map { it.toDomain() }
+                val historialReal = reportesDto.map { reporte ->
+                    reporte.toDomain()
+                }
 
                 // 3. ACTUALIZAR UI
                 _uiState.update {
