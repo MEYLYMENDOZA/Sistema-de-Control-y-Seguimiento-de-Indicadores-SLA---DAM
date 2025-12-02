@@ -96,11 +96,8 @@ class PdfExporter(private val context: Context) {
         }
     }
 
-    private fun agregarEncabezado(document: Document) {
-        try {
-            // Cargar logo TATA desde recursos drawable
-            // Nota: El archivo se llama logo_TATA.png pero Android lo convierte a logo_tata
-            val resourceId = context.resources.getIdentifier("logo_tata", "drawable", context.packageName)
+
+    // --- Métodos privados auxiliares ---
 
     private fun crearArchivo(nombreBase: String): File {
         val reportsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "SLA_Reports")
@@ -136,7 +133,10 @@ class PdfExporter(private val context: Context) {
             cellLogo.horizontalAlignment = Element.ALIGN_RIGHT
             table.addCell(cellLogo)
         } catch (e: Exception) {
-            table.addCell(Phrase("No logo"))
+            val cellLogo = PdfPCell(Phrase("No logo"))
+            cellLogo.border = Rectangle.NO_BORDER
+            cellLogo.horizontalAlignment = Element.ALIGN_RIGHT
+            table.addCell(cellLogo)
         }
         
         document.add(table)

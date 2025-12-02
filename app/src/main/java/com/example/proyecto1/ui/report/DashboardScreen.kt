@@ -70,40 +70,47 @@ fun DashboardScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Reportes") },
-                navigationIcon = { IconButton(onClick = openDrawer) { Icon(Icons.Filled.Menu, "Menú") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = White, titleContentColor = Black)
-            )
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        when (val state = uiState) {
-            is ReportUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // Título principal
+            Text(
+                text = "Reportes",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(16.dp)
+            )
+
+            when (val state = uiState) {
+                is ReportUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
-            is ReportUiState.Success -> {
-                ReportContent(
-                    paddingValues = innerPadding,
-                    reportData = state.reportData,
-                    onExportClick = { reportViewModel.exportarReportePdf() }
-                )
-            }
-            is ReportUiState.Error -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Filled.Warning, "Error", tint = Color.Red, modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(state.message, color = Color.Red, textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { reportViewModel.fetchReportData() }) {
-                        Text("Reintentar")
+                is ReportUiState.Success -> {
+                    ReportContent(
+                        paddingValues = PaddingValues(0.dp),
+                        reportData = state.reportData,
+                        onExportClick = { reportViewModel.exportarReportePdf() }
+                    )
+                }
+                is ReportUiState.Error -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Filled.Warning, "Error", tint = Color.Red, modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(state.message, color = Color.Red, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { reportViewModel.fetchReportData() }) {
+                            Text("Reintentar")
+                        }
                     }
                 }
             }
