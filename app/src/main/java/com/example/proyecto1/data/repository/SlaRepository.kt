@@ -147,10 +147,10 @@ class SlaRepository {
         }
     }
 
-    suspend fun obtenerAñosDisponibles(): List<Int> {
+    suspend fun obtenerAniosDisponibles(): List<Int> {
         return try {
-            apiService.obtenerAñosDisponibles().body() ?: emptyList()
-        } catch (e: Exception) {
+            apiService.obtenerAniosDisponibles().body() ?: emptyList()
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -158,7 +158,7 @@ class SlaRepository {
     suspend fun obtenerMesesDisponibles(anio: Int): List<Int> {
         return try {
             apiService.obtenerMesesDisponibles(anio).body() ?: emptyList()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }

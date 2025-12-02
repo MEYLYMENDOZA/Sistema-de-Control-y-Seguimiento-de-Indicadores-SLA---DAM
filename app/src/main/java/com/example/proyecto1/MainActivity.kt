@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.runtime.*
@@ -39,11 +39,9 @@ import com.example.proyecto1.ui.report.DashboardScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import com.example.proyecto1.ui.login.LoginScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionScreen
-import com.example.proyecto1.presentation.prediccion.PrediccionViewModel
 import com.example.proyecto1.presentation.tendencia.TendenciaScreen
 import com.example.proyecto1.presentation.tendencia.TendenciaViewModel
+import com.example.proyecto1.presentation.usuarios.UsuariosScreen
 
 
 // DataStore delegate (Preferences) - disponible a nivel de archivo
@@ -207,7 +205,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                             openDrawer = { scope.launch { drawerState.open() } }
                         )
                     }
-                    composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
+                    composable(Screen.Usuarios.route) { UsuariosScreen() }
                     composable(Screen.Carga.route) { CargaPlaceholder() }
                     composable(Screen.Prediccion.route) {
                         val prediccionViewModel: PrediccionViewModel = viewModel()
@@ -218,12 +216,10 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                         val tendenciaViewModel: TendenciaViewModel = viewModel()
                         TendenciaScreen(vm = tendenciaViewModel)
                     }
-                    composable(Screen.Configuracion.route) { ConfiguracionPlaceholder() }
 
                     composable(Screen.Configuracion.route) {
                         ConfigurationScreen(openDrawer = { scope.launch { drawerState.open() } })
                     }
-
                 }
             }
         }
@@ -231,7 +227,7 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
 }
 
 // -------------------------------------------------
-// DrawerMenu, BottomBar, LoginScreen y Placeholders
+// DrawerMenu y Placeholders
 
 @Composable
 fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
@@ -244,80 +240,27 @@ fun DrawerMenu(onNavigateTo: (String) -> Unit, onLogout: () -> Unit) {
         Text(text = "Menú", style = MaterialTheme.typography.titleLarge)
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Enlaces a módulos
-        Text(
-            text = "Alertas",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Alertas.route) }
-        )
-
-        Text(
-            text = "Dashboard",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Dashboard.route) }
-        )
-
-        Text(
-            text = "Reportes",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Reportes.route) }
-        )
-
-        Text(
-            text = "Usuarios",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Usuarios.route) }
-        )
-
-        Text(
-            text = "Carga",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Carga.route) }
-        )
-
-        Text(
-            text = "Predicción",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Prediccion.route) }
-        )
-
-        Text(
-            text = "Tendencia",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Tendencia.route) }
-        )
-
-        Text(
-            text = "Configuración",
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .clickable { onNavigateTo(Screen.Configuracion.route) }
-        )
+        Text(text = "Alertas", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Alertas.route) })
+        Text(text = "Dashboard", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Dashboard.route) })
+        Text(text = "Reportes", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Reportes.route) })
+        Text(text = "Usuarios", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Usuarios.route) })
+        Text(text = "Carga", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Carga.route) })
+        Text(text = "Predicción", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Prediccion.route) })
+        Text(text = "Tendencia", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Tendencia.route) })
+        Text(text = "Configuración", modifier = Modifier.padding(vertical = 8.dp).clickable { onNavigateTo(Screen.Configuracion.route) })
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Logout
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onLogout() }
-                .padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().clickable { onLogout() }.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.ExitToApp, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = "Cerrar sesión")
         }
     }
 }
-
 
 @Composable
 fun AlertasPlaceholder() {
@@ -330,32 +273,15 @@ fun DashboardPlaceholder() {
 }
 
 @Composable
-fun ReportesPlaceholder() {
-    PlaceholderScreen(title = "Reportes")
-}
-
-@Composable
-fun UsuariosPlaceholder() {
-    PlaceholderScreen(title = "Usuarios")
-}
-
-@Composable
 fun CargaPlaceholder() {
     PlaceholderScreen(title = "Carga")
-}
-
-@Composable
-fun ConfiguracionPlaceholder() {
-    PlaceholderScreen(title = "Configuración")
 }
 
 @Composable
 fun PlaceholderScreen(title: String) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

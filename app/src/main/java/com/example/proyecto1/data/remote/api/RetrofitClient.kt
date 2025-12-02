@@ -15,26 +15,24 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
 
     // Base URL configurable por buildType (debug/release)
-
-    // TEMPORAL: Hardcodeado hasta que se haga rebuild del proyecto
+    // PUERTO CORRECTO: 5120 (NO 5210)
     private val BASE_URL: String = try {
         BuildConfig.API_BASE_URL
-    } catch (e: Exception) {
-        // Fallback si BuildConfig no está generado
-        "http://192.168.100.4:5120/"
+    } catch (_: Exception) {
+        // Fallback: 10.0.2.2 es localhost del PC desde el emulador Android - Puerto 5120
+        "http://10.0.2.2:5120/"
     }
-
-    private val BASE_URL: String = BuildConfig.API_BASE_URL
 
     
     init {
         android.util.Log.d("RetrofitClient", "🌐 API Base URL configurada: $BASE_URL")
-        android.util.Log.d("RetrofitClient", "📱 Dispositivo: FÍSICO (celular conectado por USB)")
-        android.util.Log.d("RetrofitClient", "⚠️ IMPORTANTE: PC y celular deben estar en la MISMA red WiFi")
+        android.util.Log.d("RetrofitClient", "📱 Conectando al backend en puerto 5120")
+        android.util.Log.d("RetrofitClient", "⚠️ IMPORTANTE: Backend debe estar ejecutándose en http://localhost:5120")
     }
 
     /**
      * Cliente HTTP con logging para debug
+     * Timeouts aumentados para evitar errores de conexión
      */
     private val okHttpClient: OkHttpClient by lazy {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -43,9 +41,10 @@ object RetrofitClient {
 
         OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)  // Aumentado a 30 segundos
+            .readTimeout(30, TimeUnit.SECONDS)     // Aumentado a 30 segundos
+            .writeTimeout(30, TimeUnit.SECONDS)    // Aumentado a 30 segundos
+            .retryOnConnectionFailure(true)         // Activar reintentos
             .build()
     }
 

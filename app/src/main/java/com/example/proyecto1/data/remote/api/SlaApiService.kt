@@ -9,12 +9,16 @@ import com.example.proyecto1.data.remote.dto.PeriodoDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
+import com.example.proyecto1.data.remote.dto.LoginRequestDto
+import com.example.proyecto1.data.remote.dto.LoginResponseDto
+import com.example.proyecto1.data.remote.dto.UsuarioDto
+import com.example.proyecto1.data.remote.dto.CrearUsuarioDto
+import com.example.proyecto1.data.remote.dto.ListaUsuariosResponseDto
+import com.example.proyecto1.data.remote.dto.RolSistemaDto
+import com.example.proyecto1.data.remote.dto.EstadoUsuarioDto
 
 import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.PUT
-import retrofit2.http.Query
+import retrofit2.http.*
 
 /**
  * Interfaz de API REST para consumir el backend de SQL Server
@@ -61,11 +65,6 @@ interface SlaApiService {
      * GET /api/reporte/meses-disponibles?anio=2024
      */
     @GET("api/reporte/meses-disponibles")
-
-    @GET("api/sla/años-disponibles")
-    suspend fun obtenerAñosDisponibles(): Response<List<Int>>
-
-    @GET("api/sla/meses-disponibles")
     suspend fun obtenerMesesDisponibles(
         @Query("anio") anio: Int
     ): Response<List<Int>>
@@ -98,5 +97,77 @@ interface SlaApiService {
 
     @PUT("api/ConfigSla")
     suspend fun updateConfigSla(@Body configs: List<ConfigSlaUpdateDto>): Response<Unit>
- 
+
+    // --- Endpoints de Autenticación ---
+
+    /**
+     * Login de usuario
+     * POST /api/auth/login
+     */
+    @POST("api/auth/login")
+    suspend fun login(@Body request: LoginRequestDto): Response<LoginResponseDto>
+
+    /**
+     * Logout de usuario
+     * POST /api/auth/logout
+     */
+    @POST("api/auth/logout")
+    suspend fun logout(): Response<Unit>
+
+    // --- Endpoints de Gestión de Usuarios ---
+
+    /**
+     * Obtiene la lista de todos los usuarios
+     * GET /api/User - Devuelve array directo
+     */
+    @GET("api/User")
+    suspend fun obtenerUsuarios(): Response<List<UsuarioDto>>
+
+    /**
+     * Obtiene un usuario por ID
+     * GET /api/User/{id}
+     */
+    @GET("api/User/{id}")
+    suspend fun obtenerUsuarioPorId(@Path("id") id: Int): Response<UsuarioDto>
+
+    /**
+     * Crea un nuevo usuario
+     * POST /api/User
+     */
+    @POST("api/User")
+    suspend fun crearUsuario(@Body usuario: CrearUsuarioDto): Response<UsuarioDto>
+
+    /**
+     * Actualiza un usuario existente
+     * PUT /api/User/{id}
+     */
+    @PUT("api/User/{id}")
+    suspend fun actualizarUsuario(
+        @Path("id") id: Int,
+        @Body usuario: CrearUsuarioDto
+    ): Response<UsuarioDto>
+
+    /**
+     * Elimina un usuario
+     * DELETE /api/User/{id}
+     */
+    @DELETE("api/User/{id}")
+    suspend fun eliminarUsuario(@Path("id") id: Int): Response<Unit>
+
+    /**
+     * Obtiene todos los roles del sistema
+     * GET /api/User/roles
+     */
+    @GET("api/User/roles")
+    suspend fun obtenerRoles(): Response<List<RolSistemaDto>>
+
+    /**
+     * Obtiene todos los estados de usuario
+     * GET /api/User/estados
+     */
+    @GET("api/User/estados")
+    suspend fun obtenerEstadosUsuario(): Response<List<EstadoUsuarioDto>>
+
 }
+
+

@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Locale
 
 // Colores corporativos según especificación
 private val AzulCorporativo = Color(0xFF2196F3)
@@ -26,8 +27,6 @@ private val GrisClaro = Color(0xFFF4F6F8)
 private val GrisTexto = Color(0xFF616161)
 private val Verde = Color(0xFF4CAF50)
 private val Rojo = Color(0xFFE53935)
-private val Amarillo = Color(0xFFFFA726)
-private val FondoGris = Color(0xFFF5F7FA)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -954,7 +953,7 @@ private fun TarjetaComparacion(
                 )
             }
 
-            Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+            HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
             // Fila de comparación
             Row(
@@ -973,7 +972,7 @@ private fun TarjetaComparacion(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${String.format("%.1f", prediccion)}%",
+                        text = "${String.format(Locale.US, "%.1f", prediccion)}%",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = AzulCorporativo

@@ -30,13 +30,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // URL configurada para dispositivo físico con IP local del PC
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120/\"")
+            // URL para backend en puerto 5120
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120/\"")
         }
         debug {
-            // IP local del PC WiFi: 192.168.100.4 (nueva red)
-            // IMPORTANTE: PC y celular deben estar en la MISMA red WiFi
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.100.4:5120/\"")
+            // 10.0.2.2 = localhost del PC desde emulador Android - Puerto 5120
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120/\"")
 
         }
     }

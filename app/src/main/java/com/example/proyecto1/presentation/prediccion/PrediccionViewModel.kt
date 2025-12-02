@@ -95,11 +95,11 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
     fun cargarAñosDisponibles() {
         viewModelScope.launch {
             try {
-                val años = repository.obtenerAñosDisponibles()
-                _añosDisponibles.value = años
-                Log.d("PrediccionViewModel", "✅ Años disponibles cargados: $años")
-            } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar años disponibles", e)
+                val anios = repository.obtenerAniosDisponibles()
+                _añosDisponibles.value = anios
+                Log.d("PrediccionViewModel", "✅ Años disponibles cargados: $anios")
+            } catch (_: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al cargar años disponibles")
             }
         }
     }
@@ -113,8 +113,8 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
                 val meses = repository.obtenerMesesDisponibles(anio)
                 _mesesDisponibles.value = meses
                 Log.d("PrediccionViewModel", "✅ Meses disponibles para $anio: $meses")
-            } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar meses disponibles", e)
+            } catch (_: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al cargar meses disponibles")
             }
         }
     }
