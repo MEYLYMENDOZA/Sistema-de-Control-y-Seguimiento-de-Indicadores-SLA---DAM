@@ -6,6 +6,7 @@ import com.example.proyecto1.data.remote.dto.TipoSlaDto
 
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateWrapper
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import com.example.proyecto1.presentation.carga.CargaItemData
 
@@ -93,6 +94,6 @@ interface SlaApiService {
     suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>>
 
     @PUT("api/ConfigSla")
-    suspend fun updateConfigSla(@Body configs: List<ConfigSlaUpdateDto>): Response<Unit>
+    suspend fun updateConfigSla(@Body configs: ConfigSlaUpdateWrapper): Response<Unit>
  
 }

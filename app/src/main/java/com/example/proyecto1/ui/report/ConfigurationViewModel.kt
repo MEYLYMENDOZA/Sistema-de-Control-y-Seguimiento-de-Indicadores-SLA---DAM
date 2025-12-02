@@ -3,15 +3,15 @@ package com.example.proyecto1.ui.report
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.SlaRepository // <-- CORREGIDO
+import com.example.proyecto1.data.SlaRepository
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
-import dagger.hilt.android.lifecycle.HiltViewModel // <-- AÑADIDO
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject // <-- AÑADIDO
+import javax.inject.Inject
 
 /**
  * Define los posibles estados de la UI para la pantalla de configuración.
@@ -25,8 +25,8 @@ sealed class ConfigUiState {
 /**
  * ViewModel para la pantalla de configuración, adaptado para Hilt.
  */
-@HiltViewModel // <-- AÑADIDO
-class ConfigurationViewModel @Inject constructor( // <-- CORREGIDO
+@HiltViewModel
+class ConfigurationViewModel @Inject constructor(
     private val repository: SlaRepository
 ) : ViewModel() {
 
@@ -45,16 +45,10 @@ class ConfigurationViewModel @Inject constructor( // <-- CORREGIDO
     fun loadConfigSla() {
         viewModelScope.launch {
             _uiState.value = ConfigUiState.Loading
-            // Hilt ahora provee el repositorio correcto, que devuelve un Flow.
-            // Asumimos que el método en el nuevo repo se llama `getConfigSlaFlow()` o similar
-            // Por ahora, lo adaptamos para que compile, pero puede necesitar ajuste.
             try {
-                // Esta es una suposición de cómo podría ser el nuevo método.
-                // Si el método real es diferente, esto necesitará un ajuste.
-                // Por ahora, simulamos una llamada que podría fallar o tener éxito.
-                val result = repository.getConfigSla() // Asumiendo que esta función existe en el repo correcto.
+                val result = repository.getConfigSla()
                 result.onSuccess {
-                     val codigosRecibidos = it.joinToString { config -> config.codigoSla }
+                     val codigosRecibidos = it.joinToString { config -> "${config.codigoSla} (ID: ${config.idSla})" }
                      Log.d(TAG, "🔍 Códigos SLA recibidos de la API: [$codigosRecibidos]")
                     _uiState.value = ConfigUiState.Success(it)
                 }.onFailure {
@@ -66,17 +60,29 @@ class ConfigurationViewModel @Inject constructor( // <-- CORREGIDO
         }
     }
 
-    fun saveConfigSla(updates: List<ConfigSlaUpdateDto>) {
+    fun saveConfigSla(updatedValues: Map<Int, String>) {
         viewModelScope.launch {
-            try {
-                // Asumiendo que esta función existe en el repo correcto
-                val result = repository.updateConfigSla(updates)
-                _saveStatus.value = result
-                if (result.isSuccess) {
-                    loadConfigSla() // Recargar si el guardado fue exitoso
+            val currentState = _uiState.value
+            if (currentState is ConfigUiState.Success) {
+                // LÓGICA CENTRALIZADA Y A PRUEBA DE ERRORES
+                val updates = currentState.configs.map { originalConfig ->
+                    val diasUmbralString = updatedValues[originalConfig.idSla] ?: originalConfig.diasUmbral.toString()
+                    val diasUmbral = diasUmbralString.toIntOrNull() ?: originalConfig.diasUmbral
+                    Log.d(TAG, "💾 Preparando para guardar ${originalConfig.codigoSla}: ID=${originalConfig.idSla}, Días=$diasUmbral")
+                    ConfigSlaUpdateDto(originalConfig.idSla, originalConfig.codigoSla, diasUmbral)
                 }
-            } catch (e: Exception) {
-                 _saveStatus.value = Result.failure(e)
+                
+                try {
+                    val result = repository.updateConfigSla(updates)
+                    _saveStatus.value = result
+                    if (result.isSuccess) {
+                        loadConfigSla()
+                    }
+                } catch (e: Exception) {
+                     _saveStatus.value = Result.failure(e)
+                }
+            } else {
+                _saveStatus.value = Result.failure(Exception("No se puede guardar porque el estado actual no es válido."))
             }
         }
     }
@@ -85,5 +91,3 @@ class ConfigurationViewModel @Inject constructor( // <-- CORREGIDO
         _saveStatus.value = null
     }
 }
-
-// La ViewModelFactory ya no es necesaria con Hilt, por lo que se elimina.

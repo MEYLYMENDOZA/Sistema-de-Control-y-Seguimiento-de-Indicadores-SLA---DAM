@@ -24,7 +24,6 @@ class CargaViewModel @Inject constructor(
 
     // PASO 1: El usuario selecciona el archivo. Solo guardamos su información.
     fun onFileSelected(context: Context, uri: Uri) {
-        // Obtenemos el nombre del archivo desde la URI
         val cursor = context.contentResolver.query(uri, null, null, null, null)
         val name = cursor?.use {
             if (it.moveToFirst()) {
@@ -47,7 +46,6 @@ class CargaViewModel @Inject constructor(
     }
 
     // PASO 2: El usuario confirma y pulsa el botón "Procesar".
-    // Los datos se cargan en el repositorio local para que GESTIÓN los pueda usar.
     fun procesarArchivoSeleccionado(context: Context) {
         val uri = _uiState.value.selectedFileUri ?: return
 
@@ -67,7 +65,6 @@ class CargaViewModel @Inject constructor(
                     val summary = CargaSummaryData(total, cumplen, noCumplen, porcCumplimiento)
 
                     _uiState.update { it.copy(summary = summary, items = finalItems, isLoading = false, userMessage = "Archivo procesado. Vaya a Gestión para editar y subir los datos.") }
-                    // Los datos se guardan en el repositorio para que la pantalla de Gestión los use.
                     slaRepository.replaceItemsWith(finalItems)
 
                 } else {
@@ -80,8 +77,6 @@ class CargaViewModel @Inject constructor(
             }
         }
     }
-
-    // LA FUNCIÓN 'subirDatosAGuardar' HA SIDO ELIMINADA. NO PERTENECE A ESTA PANTALLA.
 
     fun downloadTemplate(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {

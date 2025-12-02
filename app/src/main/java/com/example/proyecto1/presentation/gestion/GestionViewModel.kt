@@ -41,6 +41,7 @@ class GestionViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
+        // Colecciona los items de solicitud del repositorio
         viewModelScope.launch {
             slaRepository.slaItems.collect { allItems ->
                 _uiState.update {
@@ -50,6 +51,11 @@ class GestionViewModel @Inject constructor(
                     )
                 }
             }
+        }
+        
+        // Se asegura de que la configuración de SLA esté cargada al iniciar
+        viewModelScope.launch {
+            slaRepository.refreshSlaConfigs()
         }
     }
 
@@ -136,15 +142,36 @@ class GestionViewModel @Inject constructor(
         val originalItem = _uiState.value.itemToEdit ?: return
         val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         
+        // --- LA SOLUCIÓN CORRECTA: Usar el repositorio como ÚNICA FUENTE DE VERDAD ---
+        val slaConfigs = slaRepository.slaConfigs.value
+        if (slaConfigs.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "La configuración de SLA no está disponible. Reintentando...") }
+            viewModelScope.launch { 
+                slaRepository.refreshSlaConfigs() 
+                _uiState.update { it.copy(errorMessage = "Configuración recargada. Por favor, guarde de nuevo.") }
+            }
+            return
+        }
+        
         try {
             val fechaSolicitud = LocalDate.parse(_uiState.value.editedFechaSolicitud, formatter)
             val fechaIngreso = LocalDate.parse(_uiState.value.editedFechaIngreso, formatter)
 
             val diasTranscurridos = ChronoUnit.DAYS.between(fechaSolicitud, fechaIngreso)
-            val slaTargets = mapOf("SLA1" to 35L, "SLA2" to 20L)
-            val targetDays = slaTargets[_uiState.value.editedTipoSla] ?: 0L
-            val cumple = diasTranscurridos >= 0 && diasTranscurridos < targetDays
+
+            // --- LÓGICA DINÁMICA ---
+            // Se busca el umbral en la lista de configs del repositorio.
+            val targetDays = slaConfigs.find { it.codigoSla == _uiState.value.editedTipoSla }?.diasUmbral?.toLong() ?: -1L
+
+            // Validar que el tipo de SLA sea válido
+            if (targetDays == -1L) {
+                 _uiState.update { it.copy(errorMessage = "El Tipo de SLA '${_uiState.value.editedTipoSla}' no es válido.") }
+                 return
+            }
+
+            val cumple = diasTranscurridos >= 0 && diasTranscurridos <= targetDays
             val estado = if (cumple) "Cumple" else "No Cumple"
+            
             val cumplimiento = when {
                 cumple -> 100.0f
                 targetDays <= 0 -> 0.0f
@@ -157,6 +184,7 @@ class GestionViewModel @Inject constructor(
                 fechaIngreso = _uiState.value.editedFechaIngreso,
                 tipoSla = _uiState.value.editedTipoSla,
                 diasTranscurridos = diasTranscurridos.toInt(),
+                diasObjetivo = targetDays.toInt(),
                 estado = estado,
                 cumplimiento = cumplimiento
             )

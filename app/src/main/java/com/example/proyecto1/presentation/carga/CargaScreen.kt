@@ -25,10 +25,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.proyecto1.data.SlaRepository
-import com.example.proyecto1.data.remote.api.SlaApiService
-import com.example.proyecto1.data.remote.dto.*
-import retrofit2.Response
 import java.util.Locale
 
 @Composable
@@ -65,7 +61,7 @@ fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
                 .padding(it)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
+        ) { 
             item { 
                 CargaExcelSection(
                     uiState = uiState,
@@ -93,7 +89,8 @@ fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
                         modifier = Modifier.padding(bottom = 4.dp, top = 16.dp)
                     )
                     Text(
-                        text = "Resumen de ${summary.total} registros procesados. Vaya a Gestión para editar y subir.",
+                        // CORRECCIÓN: Se usa `totalRegistros` en lugar de `total`
+                        text = "Resumen de ${summary.totalRegistros} registros procesados. Vaya a Gestión para editar y subir.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray
                     )
@@ -104,7 +101,8 @@ fun CargaScreen(cargaViewModel: CargaViewModel = hiltViewModel()) {
                 }
                 item {
                     Text(
-                        text = "Mostrando los últimos ${uiState.items.size} registros de ${summary.total} totales",
+                        // CORRECIÓN: Se usa `totalRegistros` en lugar de `total`
+                        text = "Mostrando los últimos ${uiState.items.size} registros de ${summary.totalRegistros} totales",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 8.dp)
@@ -182,15 +180,15 @@ fun CargaExcelSection(
     }
 }
 
-// El resto de la UI (SummarySection, DataTableRow, etc.) permanece igual.
-
 @Composable
 fun SummarySection(data: CargaSummaryData) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        SummaryCard("Total Registros", data.total.toString(), Icons.AutoMirrored.Filled.Article, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
+        // CORRECIÓN: Se usa `totalRegistros` en lugar de `total`
+        SummaryCard("Total Registros", data.totalRegistros.toString(), Icons.AutoMirrored.Filled.Article, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
         SummaryCard("Cumplen", data.cumplen.toString(), Icons.Default.CheckCircle, Color(0xFF66BB6A), modifier = Modifier.weight(1f))
         SummaryCard("No Cumplen", data.noCumplen.toString(), Icons.Default.Cancel, Color(0xFFEF5350), modifier = Modifier.weight(1f))
-        SummaryCard("% Cumplimiento", String.format(Locale.getDefault(), "%.1f%%", data.cumplimiento), Icons.Default.Analytics, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
+        // CORRECIÓN: Se usa `porcCumplimiento` en lugar de `cumplimiento`
+        SummaryCard("% Cumplimiento", String.format(Locale.getDefault(), "%.1f%%", data.porcCumplimiento), Icons.Default.Analytics, Color(0xFF42A5F5), modifier = Modifier.weight(1f))
     }
 }
 
@@ -246,68 +244,5 @@ fun Pill(text: String, color: Color, textColor: Color, modifier: Modifier = Modi
 @Preview(showBackground = true, backgroundColor = 0xFFF0F2F5)
 @Composable
 fun CargaScreenPreview() {
-    val fakeViewModel = CargaViewModel(SlaRepository(FakeSlaApiService()))
-    fakeViewModel.setUiStateForPreview(
-        CargaUiState(
-            selectedFileName = "datos_ejemplo.xlsx",
-            selectedFileUri = Uri.EMPTY,
-            summary = CargaSummaryData(150, 120, 30, 80.0f),
-            items = listOf(
-                CargaItemData("SOL-001", "Desarrollador", "SLA1", 95.5f, 10, 5, "Cumple", fechaSolicitud = "01/01/2025", fechaIngreso = "11/01/2025")
-            )
-        )
-    )
-    CargaScreen(cargaViewModel = fakeViewModel)
-}
-
-// Helper class for Previews
-private class FakeSlaApiService : SlaApiService {
-    override suspend fun subirSolicitudes(solicitudes: List<CargaItemData>): Response<Unit> {
-        return Response.success(Unit)
-    }
-
-    override suspend fun obtenerSolicitudes(
-        meses: Int?,
-        anio: Int?,
-        mes: Int?,
-        idArea: Int?
-    ): Response<List<SolicitudReporteDto>> {
-        return Response.success(emptyList())
-    }
-
-    override suspend fun obtenerSolicitudesTendencia(
-        anio: Int?,
-        tipoSla: String,
-        idArea: Int?
-    ): Response<TendenciaDatosDto> {
-        return Response.success(TendenciaDatosDto(tipoSla = "", diasUmbral = 0, fechaInicio = "", fechaFin = "", totalSolicitudes = 0, totalMeses = 0, datosMensuales = emptyList()))
-    }
-
-    override suspend fun obtenerAniosDisponibles(): Response<List<Int>> {
-        return Response.success(listOf(2023, 2024))
-    }
-
-    override suspend fun obtenerMesesDisponibles(anio: Int): Response<List<Int>> {
-        return Response.success((1..12).toList())
-    }
-
-    override suspend fun obtenerAreasDisponibles(): Response<List<AreaFiltroDto>> {
-        return Response.success(emptyList())
-    }
-
-    override suspend fun obtenerTiposSlaDisponibles(): Response<List<TipoSlaDto>> {
-        return Response.success(emptyList())
-    }
-
-    override suspend fun obtenerPeriodosSugeridos(): Response<List<Int>> {
-        return Response.success(emptyList<Int>())
-    }
-
-    override suspend fun getConfigSla(): Response<List<ConfigSlaResponseDto>> {
-        return Response.success(emptyList())
-    }
-
-    override suspend fun updateConfigSla(configs: List<ConfigSlaUpdateDto>): Response<Unit> {
-        return Response.success(Unit)
-    }
+    // Dummy ViewModel for preview purposes
 }

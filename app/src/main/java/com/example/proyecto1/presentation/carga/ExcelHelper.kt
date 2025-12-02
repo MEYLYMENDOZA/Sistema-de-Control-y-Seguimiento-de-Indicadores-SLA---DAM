@@ -18,7 +18,10 @@ object ExcelHelper {
 
     fun parseExcelFile(context: Context, uri: Uri): Result<List<CargaItemData>> {
         return try {
-            val slaTargets = mapOf("SLA1" to 35L, "SLA2" to 20L)
+            // CORRECCIÓN: Se usan los valores correctos para mantener la consistencia.
+            // La solución ideal a futuro sería pasar la configuración desde el ViewModel
+            // para no tener estos valores en varios sitios.
+            val slaTargets = mapOf("SLA1" to 10L, "SLA2" to 5L)
             val parsedItems = mutableListOf<CargaItemData>()
 
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -45,7 +48,7 @@ object ExcelHelper {
                         val diasTranscurridos = ChronoUnit.DAYS.between(fechaSolicitud, fechaIngreso)
                         val targetDays = slaTargets[tipoSla] ?: 0L
 
-                        val cumple = diasTranscurridos >= 0 && diasTranscurridos < targetDays
+                        val cumple = diasTranscurridos >= 0 && diasTranscurridos <= targetDays
                         val estado = if (cumple) "Cumple" else "No Cumple"
 
                         val cumplimiento = when {
@@ -62,9 +65,9 @@ object ExcelHelper {
                                 codigo = codigo, rol = rol, tipoSla = tipoSla,
                                 cumplimiento = cumplimiento,
                                 diasTranscurridos = diasTranscurridos.toInt(),
+                                diasObjetivo = targetDays.toInt(), // <-- PARÁMETRO AÑADIDO
                                 cantidadPorRol = 0, // Se calculará después
                                 estado = estado,
-                                // CORRECCIÓN: Guardar las fechas con el formato de salida estandarizado
                                 fechaSolicitud = fechaSolicitud.format(outputFormatter),
                                 fechaIngreso = fechaIngreso.format(outputFormatter)
                             )

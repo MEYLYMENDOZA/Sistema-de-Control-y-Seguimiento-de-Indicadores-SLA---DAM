@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.proyecto1.data.remote.api.SlaApiService
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
+import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateWrapper
 import com.example.proyecto1.data.remote.dto.SolicitudReporteDto
 import com.example.proyecto1.domain.math.LinearRegression
 import com.example.proyecto1.presentation.carga.CargaItemData
@@ -13,10 +14,13 @@ import com.example.proyecto1.ui.report.CumplimientoPorTipoDto
 import com.example.proyecto1.ui.report.ReporteGeneralDto
 import com.example.proyecto1.ui.report.ResumenEjecutivoDto
 import com.example.proyecto1.ui.report.UltimoRegistroDto
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -32,10 +36,33 @@ import kotlin.math.max
 class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
 
     private val TAG = "SlaRepository"
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // --- StateFlow from the 'new' repository for CargaScreen ---
+    // --- StateFlow for CargaScreen items ---
     private val _slaItems = MutableStateFlow<List<CargaItemData>>(emptyList())
     val slaItems = _slaItems.asStateFlow()
+
+    // --- StateFlow for SLA Configurations (The Single Source of Truth) ---
+    private val _slaConfigs = MutableStateFlow<List<ConfigSlaResponseDto>>(emptyList())
+    val slaConfigs = _slaConfigs.asStateFlow()
+
+    init {
+        // Cargar la configuración de SLA en cuanto se crea el repositorio
+        repositoryScope.launch {
+            refreshSlaConfigs()
+        }
+    }
+    
+    // --- Public function to refresh SLA configurations from API ---
+    suspend fun refreshSlaConfigs() {
+        getConfigSla().onSuccess { configs ->
+            _slaConfigs.update { configs }
+            Log.d(TAG, "Configuraciones de SLA cargadas exitosamente: ${configs.size} encontradas.")
+        }.onFailure { error ->
+            Log.e(TAG, "Error al cargar configuraciones de SLA", error)
+        }
+    }
+
 
     // --- Methods for CargaScreen ---
     suspend fun refreshDataFromApi() {
@@ -43,10 +70,14 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
             val response = apiService.obtenerSolicitudes()
             if (response.isSuccessful) {
                 val solicitudDtos = response.body() ?: emptyList()
+                // Asegurarse que los configs están cargados antes de mapear
+                if (_slaConfigs.value.isEmpty()) {
+                    refreshSlaConfigs()
+                }
                 val cargaItems = solicitudDtos.map { it.toCargaItemData() }
                 _slaItems.update { cargaItems }
             } else {
-                Log.e(TAG, "Error de API: ${'$'}{response.code()} - ${'$'}{response.message()}")
+                Log.e(TAG, "Error de API: ${response.code()} - ${response.message()}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error al obtener datos de la API", e)
@@ -64,7 +95,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
                     val errorMessage = if (!errorBody.isNullOrBlank()) {
                         errorBody.replace("{\"message\":\"", "").replace("\"}", "")
                     } else {
-                        "Error en el servidor: ${'$'}{response.code()}"
+                        "Error en el servidor: ${response.code()}"
                     }
                     Result.failure(Exception(errorMessage))
                 }
@@ -90,30 +121,48 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         _slaItems.update { currentList -> currentList.filterNot { it.codigo in itemCodes } }
     }
 
+    // --- DTO to UI Model Conversion ---
     private fun SolicitudReporteDto.toCargaItemData(): CargaItemData {
-        // CORRECCIÓN: Usamos los códigos sin ceros para que coincida con la BD
-        val slaTargets = mapOf("SLA1" to 35L, "SLA2" to 20L)
+        // Usar la lista de configuraciones del repositorio como ÚNICA FUENTE DE VERDAD
+        val slaConfigsValue = _slaConfigs.value
+
         val apiFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
         val displayFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
         val fechaSolicitud = try { this.fechaSolicitud?.let { LocalDate.parse(it, apiFormatter) } } catch (e: Exception) { null }
         val fechaIngreso = try { this.fechaIngreso?.let { LocalDate.parse(it, apiFormatter) } } catch (e: Exception) { null }
         val diasTranscurridos = if (fechaSolicitud != null && fechaIngreso != null) ChronoUnit.DAYS.between(fechaSolicitud, fechaIngreso) else this.numDiasSla?.toLong() ?: 0L
         
-        // CORRECCIÓN: Revertimos al código original para quitar los ceros, como corresponde
-        val targetSlaCode = this.codigoSla?.uppercase()?.replace("00", "") ?: ""
+        val targetSlaCode = this.codigoSla ?: ""
         
-        val targetDays = slaTargets[targetSlaCode] ?: 35L
-        val cumple = diasTranscurridos >= 0 && diasTranscurridos < targetDays
+        // --- LÓGICA DINÁMICA ---
+        // Se busca el umbral en la lista de configs en lugar de usar valores fijos
+        val targetDays = slaConfigsValue.find { it.codigoSla == targetSlaCode }?.diasUmbral?.toLong() ?: 0L
+
+        val cumple = diasTranscurridos >= 0 && diasTranscurridos <= targetDays
         val estado = if (cumple) "Cumple" else "No Cumple"
+        
         val cumplimiento = when {
             cumple -> 100.0f
             targetDays <= 0 -> 0.0f
             else -> max(0f, (2f - (diasTranscurridos.toFloat() / targetDays.toFloat())) * 50f)
         }
-        return CargaItemData(this.idSolicitud.toString(), this.rol?.nombre ?: "N/A", targetSlaCode, cumplimiento, diasTranscurridos.toInt(), 0, estado, fechaSolicitud?.format(displayFormatter) ?: "", fechaIngreso?.format(displayFormatter) ?: "")
+
+        return CargaItemData(
+            codigo = this.idSolicitud.toString(), // Usamos el ID de solicitud como código único
+            rol = this.rol?.nombre ?: "N/A",
+            tipoSla = targetSlaCode,
+            cumplimiento = cumplimiento,
+            diasTranscurridos = diasTranscurridos.toInt(),
+            diasObjetivo = targetDays.toInt(),
+            estado = estado,
+            fechaSolicitud = fechaSolicitud?.format(displayFormatter) ?: "",
+            fechaIngreso = fechaIngreso?.format(displayFormatter) ?: "",
+            cantidadPorRol = 0 // <-- AÑADIDO PARA SOLUCIONAR EL ERROR DE COMPILACIÓN
+        )
     }
 
-    // --- Methods from the 'old' repository, now part of the unified repository ---
+    // --- Methods for Reporting and Prediction, now part of the unified repository ---
 
     suspend fun obtenerReporteGeneral(): Result<Pair<ReporteGeneralDto, List<SolicitudReporteDto>>> {
         return withContext(Dispatchers.IO) {
@@ -124,10 +173,10 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
                     val processedReport = procesarSolicitudesParaReporte(body)
                     Result.success(Pair(processedReport, body))
                 } else {
-                    Result.failure(Exception("Error ${'$'}{response.code()}: ${'$'}{response.errorBody()?.string()}"))
+                    Result.failure(Exception("Error ${response.code()}: ${response.errorBody()?.string()}"))
                 }
             } catch (e: Exception) {
-                Result.failure(Exception("No se pudo conectar al servidor: ${'$'}{e.message}"))
+                Result.failure(Exception("No se pudo conectar al servidor: ${e.message}"))
             }
         }
     }
@@ -139,7 +188,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         val porcentajeCumplimiento = if (totalCasos > 0) (cumplen.toDouble() / totalCasos) * 100 else 0.0
         val promedioDias = solicitudes.mapNotNull { it.numDiasSla }.average()
         val resumen = ResumenEjecutivoDto(totalCasos, cumplen, noCumplen, porcentajeCumplimiento, promedioDias)
-        val cumplimientoPorTipo = solicitudes.groupBy { it.codigoSla?.replace("00", "") ?: "Sin Tipo" }.map { (tipo, lista) ->
+        val cumplimientoPorTipo = solicitudes.groupBy { it.codigoSla ?: "Sin Tipo" }.map { (tipo, lista) ->
             val total = lista.size
             val cumplenTipo = lista.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
             CumplimientoPorTipoDto(tipo, total, cumplenTipo, if (total > 0) (cumplenTipo.toDouble() / total) * 100 else 0.0)
@@ -155,7 +204,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
             val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val estado = if (sol.numDiasSla != null && sol.diasUmbral != null) if (sol.numDiasSla <= sol.diasUmbral) "Cumple" else "No Cumple" else "N/A"
-            UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng, sol.codigoSla?.replace("00", "") ?: "N/A", sol.numDiasSla, estado)
+            UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng, sol.codigoSla ?: "N/A", sol.numDiasSla, estado)
         }
         return ReporteGeneralDto(resumen, cumplimientoPorTipo, cumplimientoPorRol, ultimosRegistros)
     }
@@ -163,7 +212,7 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
     suspend fun obtenerYPredecirSla(meses: Int = 12, anio: Int? = null, mes: Int? = null): Triple<Triple<Double, Double, Double>?, Double?, String?> {
         return try {
             val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = null, idArea = null)
-            if (!response.isSuccessful || response.body().isNullOrEmpty()) return Triple(null, null, "Error o no hay datos: ${'$'}{response.code()}")
+            if (!response.isSuccessful || response.body().isNullOrEmpty()) return Triple(null, null, "Error o no hay datos: ${response.code()}")
             val solicitudes = response.body()!!
             val todasLasEstadisticas = calcularEstadisticasPorMes(solicitudes)
             if (todasLasEstadisticas.size < 2) return Triple(null, null, "Datos insuficientes (se necesitan al menos 2 meses).")
@@ -173,20 +222,45 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
             val prediccion = model.predict((x.maxOrNull() ?: 0.0) + 1.0)
             Triple(Triple(prediccion, model.slope, model.intercept), null, null)
         } catch (e: Exception) {
-            Triple(null, null, "Error de conexión: ${'$'}{e.message}")
+            Triple(null, null, "Error de conexión: ${e.message}")
         }
     }
 
     private data class EstadisticaMes(val mes: String, val total: Int, val cumplidas: Int, val incumplidas: Int, val porcentajeCumplimiento: Double)
 
     private fun calcularEstadisticasPorMes(solicitudes: List<SolicitudReporteDto>): List<EstadisticaMes> {
-        val formatters = listOf(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS"), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        // =================================================================================
+        // LÍNEA DE DEPURACIÓN TEMPORAL: Imprime las fechas que llegan de la API.
+        // Esto nos ayudará a ver por qué el gráfico no se dibuja.
+        Log.d("GRAFICO_DEBUG", "Iniciando cálculo para ${solicitudes.size} registros. Fechas recibidas: " +
+            solicitudes.map { it.fechaSolicitud }.joinToString())
+        // =================================================================================
+        
+        val formatters = listOf(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS"), 
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME, 
+            DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        )
+
         val grouped = solicitudes.groupBy { solicitud ->
             solicitud.fechaSolicitud?.let { fechaStr ->
-                formatters.forEach { formatter -> try { return@groupBy LocalDateTime.parse(fechaStr, formatter).run { String.format(Locale.US, "%04d-%02d", year, monthValue) } } catch (_: DateTimeParseException) {} }
+                for (formatter in formatters) {
+                    try {
+                        // Intenta parsear como fecha y hora
+                        return@groupBy LocalDateTime.parse(fechaStr, formatter).run { String.format(Locale.US, "%04d-%02d", year, monthValue) }
+                    } catch (_: DateTimeParseException) {
+                        // Si falla, intenta parsear solo como fecha
+                        try {
+                            return@groupBy LocalDate.parse(fechaStr, formatter).run { String.format(Locale.US, "%04d-%02d", year, monthValue) }
+                        } catch (_: DateTimeParseException) {
+                            // Continúa con el siguiente formateador
+                        }
+                    }
+                }
             }
             "UNKNOWN"
         }
+
         return grouped.filter { it.key != "UNKNOWN" }.map { (mes, sols) ->
             val cumplidas = sols.count { s -> s.numDiasSla != null && s.diasUmbral != null && s.numDiasSla <= s.diasUmbral }
             val total = sols.size
@@ -217,9 +291,9 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         return withContext(Dispatchers.IO) {
             try {
                 val response = apiService.getConfigSla()
-                if (response.isSuccessful && response.body() != null) Result.success(response.body()!!) else Result.failure(Exception("Error ${'$'}{response.code()}"))
+                if (response.isSuccessful && response.body() != null) Result.success(response.body()!!) else Result.failure(Exception("Error ${response.code()}"))
             } catch (e: Exception) {
-                Result.failure(Exception("Error de conexión: ${'$'}{e.message}"))
+                Result.failure(Exception("Error de conexión: ${e.message}"))
             }
         }
     }
@@ -227,10 +301,16 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
     suspend fun updateConfigSla(configs: List<ConfigSlaUpdateDto>): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val response = apiService.updateConfigSla(configs)
-                if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("Error ${'$'}{response.code()}"))
+                val wrapper = ConfigSlaUpdateWrapper(dto = configs)
+                val response = apiService.updateConfigSla(wrapper)
+                if (response.isSuccessful) {
+                    Result.success(Unit)
+                } else {
+                    val errorDetail = response.errorBody()?.string() ?: "No additional details"
+                    Result.failure(Exception("Error ${response.code()}: $errorDetail"))
+                }
             } catch (e: Exception) {
-                Result.failure(Exception("Error de conexión: ${'$'}{e.message}"))
+                Result.failure(Exception("Error de conexión: ${e.message}"))
             }
         }
     }
