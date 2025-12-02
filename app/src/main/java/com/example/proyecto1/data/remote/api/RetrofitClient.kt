@@ -27,12 +27,15 @@ object RetrofitClient {
     private const val CONNECTION_TIMEOUT = 2000
 
     private val COMMON_IPS = listOf(
-        "172.19.7.121",
-        "172.19.5.121",
-        "192.168.100.4",
-        "192.168.1.100",
-        "192.168.0.100",
-        "10.0.0.100"
+        "192.168.100.4",    // 👈 IP ACTUAL - PRUEBA PRIMERO
+        "172.19.5.121",     // Red WiFi común 1
+        "172.19.7.121",     // Red WiFi común 2
+        "172.19.7.213",     // Red WiFi común 3
+        "192.168.1.100",    // Router común
+        "192.168.0.100",    // Router común
+        "192.168.18.246",   // Red adicional
+        "10.0.0.100",       // Red corporativa
+        "10.0.2.2"          // Emulador Android
     )
 
     private var currentBaseUrl: String? = null
@@ -78,44 +81,66 @@ object RetrofitClient {
     private fun getRetrofitInstance(): Retrofit {
         if (retrofitInstance == null) {
             Log.w(TAG, "⚠️ Retrofit no inicializado, usando IP por defecto")
-            currentBaseUrl = "http://172.19.5.121:$API_PORT/"
+            currentBaseUrl = "http://192.168.100.4:$API_PORT/"
             retrofitInstance = createRetrofit(currentBaseUrl!!)
         }
         return retrofitInstance!!
     }
 
     private suspend fun detectServerIp(context: Context): String = withContext(Dispatchers.IO) {
-        Log.d(TAG, "🔍 Buscando servidor API en la red local...")
+        Log.d(TAG, "🔍 ========================================")
+        Log.d(TAG, "🔍 INICIANDO BÚSQUEDA DE SERVIDOR API")
+        Log.d(TAG, "🔍 ========================================")
 
+        // Paso 1: Intentar última IP exitosa
         val lastIp = getLastWorkingIp(context)
-        if (lastIp != null && testConnection(lastIp)) {
-            Log.d(TAG, "✅ Usando última IP exitosa: $lastIp")
-            return@withContext formatUrl(lastIp)
+        if (lastIp != null) {
+            Log.d(TAG, "📋 Última IP guardada: $lastIp")
+            if (testConnection(lastIp)) {
+                Log.d(TAG, "✅ ¡Conexión exitosa con IP guardada!")
+                return@withContext formatUrl(lastIp)
+            } else {
+                Log.d(TAG, "❌ IP guardada no responde")
+            }
+        } else {
+            Log.d(TAG, "📋 No hay IP guardada")
         }
 
+        // Paso 2: Probar IPs comunes
+        Log.d(TAG, "🔎 Probando IPs comunes...")
         for (ip in COMMON_IPS) {
+            Log.d(TAG, "  Probando: $ip")
             if (testConnection(ip)) {
-                Log.d(TAG, "✅ Servidor encontrado en: $ip")
+                Log.d(TAG, "✅ ¡SERVIDOR ENCONTRADO EN: $ip!")
                 saveLastWorkingIp(context, ip)
                 return@withContext formatUrl(ip)
             }
         }
 
+        // Paso 3: Escanear subred local
         val localIp = getLocalIpAddress()
         if (localIp != null) {
             Log.d(TAG, "📱 IP del dispositivo: $localIp")
             val subnet = getSubnet(localIp)
-            val foundIp = scanSubnet(subnet)
+            Log.d(TAG, "🌐 Subred detectada: $subnet.0/24")
 
+            val foundIp = scanSubnet(subnet)
             if (foundIp != null) {
-                Log.d(TAG, "✅ Servidor encontrado en subred: $foundIp")
+                Log.d(TAG, "✅ ¡SERVIDOR ENCONTRADO EN SUBRED: $foundIp!")
                 saveLastWorkingIp(context, foundIp)
                 return@withContext formatUrl(foundIp)
             }
+        } else {
+            Log.w(TAG, "⚠️ No se pudo obtener la IP local del dispositivo")
         }
 
-        Log.w(TAG, "⚠️ No se pudo detectar el servidor")
-        lastIp?.let { formatUrl(it) } ?: "http://172.19.5.121:$API_PORT/"
+        // Paso 4: Fallback
+        val fallbackUrl = lastIp?.let { formatUrl(it) } ?: "http://192.168.100.4:$API_PORT/"
+        Log.w(TAG, "⚠️ ========================================")
+        Log.w(TAG, "⚠️ NO SE ENCONTRÓ SERVIDOR")
+        Log.w(TAG, "⚠️ Usando fallback: $fallbackUrl")
+        Log.w(TAG, "⚠️ ========================================")
+        fallbackUrl
     }
 
     private fun testConnection(ip: String): Boolean {
@@ -125,10 +150,22 @@ object RetrofitClient {
             connection.connectTimeout = CONNECTION_TIMEOUT
             connection.readTimeout = CONNECTION_TIMEOUT
             connection.requestMethod = "GET"
+            connection.setRequestProperty("Accept", "application/json")
+
             val responseCode = connection.responseCode
+            val isSuccess = responseCode in 200..299
+
+            if (isSuccess) {
+                Log.d(TAG, "    ✓ HTTP $responseCode - OK")
+            } else {
+                Log.d(TAG, "    ✗ HTTP $responseCode")
+            }
+
             connection.disconnect()
-            responseCode in 200..299
-        } catch (_: Exception) {
+            isSuccess
+        } catch (e: Exception) {
+            // Silencioso, es normal que falle en IPs sin servidor
+            Log.d(TAG, "    ✗ ${e.message?.take(50) ?: "No responde"}")
             false
         }
     }
@@ -159,13 +196,24 @@ object RetrofitClient {
     }
 
     private suspend fun scanSubnet(subnet: String): String? = withContext(Dispatchers.IO) {
-        val commonServerIps = listOf(1, 100, 101, 102, 121, 200, 201, 254)
+        Log.d(TAG, "🔎 Escaneando subred: $subnet.*")
+
+        // IPs más comunes para servidores locales
+        val commonServerIps = listOf(
+            1, 2, 100, 101, 102, 103, 104, 105, 110, 111,
+            120, 121, 200, 201, 213, 246, 254
+        )
+
         for (i in commonServerIps) {
             val ip = "$subnet.$i"
+            Log.d(TAG, "  Probando: $ip")
             if (testConnection(ip)) {
+                Log.d(TAG, "  ✅ ¡Encontrado!")
                 return@withContext ip
             }
         }
+
+        Log.d(TAG, "  ❌ No se encontró servidor en esta subred")
         null
     }
 
@@ -204,6 +252,10 @@ object RetrofitClient {
 
     val slaApiService: SlaApiService by lazy {
         getRetrofitInstance().create(SlaApiService::class.java)
+    }
+
+    val apiService: com.example.proyecto1.data.remote.ApiService by lazy {
+        getRetrofitInstance().create(com.example.proyecto1.data.remote.ApiService::class.java)
     }
 
     fun getCurrentBaseUrl(): String? = currentBaseUrl

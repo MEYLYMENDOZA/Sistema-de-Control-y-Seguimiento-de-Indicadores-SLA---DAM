@@ -192,22 +192,6 @@ fun AppRoot(sessionViewModel: SessionViewModel) {
                             }
                         )
                     }
-                },
-                bottomBar = {
-                    NavigationBar {
-                        // Agregamos tus notificaciones al bottom bar también si quieres
-                        val items = listOf(Screen.Alertas, Screen.Dashboard, Screen.Reportes)
-                        val currentDestination by modulesNavController.currentBackStackEntryAsState()
-                        val currentRoute = currentDestination?.destination?.route
-                        items.forEach { screen ->
-                            NavigationBarItem(
-                                selected = currentRoute == screen.route,
-                                onClick = { modulesNavController.navigate(screen.route) { launchSingleTop = true } },
-                                icon = { Icon(Icons.Filled.Report, contentDescription = null) },
-                                label = { Text(screen.label) }
-                            )
-                        }
-                    }
                 }
             ) { innerPadding ->
                 NavHost(

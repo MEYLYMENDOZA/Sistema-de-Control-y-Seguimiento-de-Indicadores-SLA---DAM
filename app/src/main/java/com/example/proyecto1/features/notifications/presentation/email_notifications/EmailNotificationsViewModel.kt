@@ -2,7 +2,7 @@ package com.example.proyecto1.features.notifications.presentation.email_notifica
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.remote.RetrofitClient // Asegúrate de importar el cliente
+import com.example.proyecto1.data.remote.api.RetrofitClient
 import com.example.proyecto1.features.notifications.domain.model.EmailNotificationHistory
 import com.example.proyecto1.features.notifications.domain.model.NotificationStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +33,7 @@ class EmailNotificationsViewModel : ViewModel() {
 
             try {
                 // 1. LLAMADA A LA API REAL
-                val reportesDto = RetrofitClient.api.getReportes()
+                val reportesDto = RetrofitClient.apiService.getReportes()
 
                 // 2. CONVERSIÓN
                 val historialReal = reportesDto.map { it.toDomain() }

@@ -76,6 +76,10 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
     private val _mesesDisponibles = MutableStateFlow<List<Int>>(emptyList())
     val mesesDisponibles: StateFlow<List<Int>> get() = _mesesDisponibles
 
+    // Tipos SLA disponibles
+    private val _tiposSlaDisponibles = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val tiposSlaDisponibles: StateFlow<List<Pair<String, String>>> get() = _tiposSlaDisponibles
+
     private val UMBRAL_MINIMO = 85.0 // SLA mínimo aceptable
 
     // Estado de filtros actuales (se conserva para reintentos/refrescos)
@@ -83,10 +87,33 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
     private var filtroMesFin: Int? = null    // 1..12
     private var filtroAnio: Int? = null
     private var filtroUltimosMeses: Int = 12
+    private var filtroTipoSla: String = "SLA001" // Por defecto SLA001
 
     init {
         // Cargar años disponibles al iniciar
         cargarAniosDisponibles()
+        cargarTiposSlaDisponibles()
+    }
+
+    /**
+     * Carga los tipos de SLA disponibles desde la base de datos
+     */
+    fun cargarTiposSlaDisponibles() {
+        viewModelScope.launch {
+            try {
+                val tipos = repository.obtenerTiposSlaDisponibles()
+                _tiposSlaDisponibles.value = tipos
+                Log.d("PrediccionViewModel", "✅ Tipos SLA disponibles: $tipos")
+                // Establecer el primer tipo como seleccionado por defecto
+                if (tipos.isNotEmpty()) {
+                    filtroTipoSla = tipos[0].first
+                }
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error al cargar tipos SLA", e)
+                // Fallback a SLA001 si hay error
+                _tiposSlaDisponibles.value = listOf("SLA001" to "SLA Tipo 1")
+            }
+        }
     }
 
     /**
@@ -128,17 +155,24 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
      * API antiguo sin parámetros: usa defaults (12 últimos meses)
      */
     fun cargarYPredecir() {
-        cargarYPredecir(mesInicio = filtroMesInicio, mesFin = filtroMesFin, anio = filtroAnio, meses = filtroUltimosMeses)
+        cargarYPredecir(
+            tipoSla = filtroTipoSla,
+            mesInicio = filtroMesInicio,
+            mesFin = filtroMesFin,
+            anio = filtroAnio,
+            meses = filtroUltimosMeses
+        )
     }
 
     /**
      * Carga los datos desde la API REST con filtros y calcula la predicción
+     * @param tipoSla Código del tipo de SLA (ej: "SLA001", "SLA002")
      * @param mesInicio Mes de inicio del rango (1-12)
      * @param mesFin Mes de fin del rango (1-12, debe ser >= mesInicio)
      * @param anio Año
      * @param meses Últimos N meses (si no se especifica rango)
      */
-    fun cargarYPredecir(mesInicio: Int?, mesFin: Int?, anio: Int?, meses: Int) {
+    fun cargarYPredecir(tipoSla: String = "SLA001", mesInicio: Int?, mesFin: Int?, anio: Int?, meses: Int) {
         // Validar que mesFin >= mesInicio
         if (mesInicio != null && mesFin != null && mesFin < mesInicio) {
             _error.value = "El mes de fin debe ser mayor o igual al mes de inicio"
@@ -150,6 +184,7 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
         filtroMesFin = mesFin
         filtroAnio = anio
         filtroUltimosMeses = meses
+        filtroTipoSla = tipoSla
 
         viewModelScope.launch {
             _cargando.value = true
@@ -157,10 +192,14 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
 
             try {
                 Log.d("PrediccionViewModel", "Iniciando carga desde API REST...")
-                Log.d("PrediccionViewModel", "Filtros: mesInicio=$mesInicio, mesFin=$mesFin, anio=$anio")
+                Log.d("PrediccionViewModel", "Filtros: tipoSla=$tipoSla, mesInicio=$mesInicio, mesFin=$mesFin, anio=$anio")
 
-                // Obtener datos históricos desde la API (con filtros)
-                val datosHistoricos = repository.obtenerDatosHistoricos(meses = meses, anio = anio, mes = mesFin)
+                // Obtener datos históricos desde la API (FILTRADOS por tipo SLA)
+                val datosHistoricos = repository.obtenerDatosHistoricosPorTipo(
+                    tipoSla = tipoSla,
+                    anio = anio,
+                    idArea = null
+                )
                 _datosHistoricos.value = datosHistoricos
 
                 Log.d("PrediccionViewModel", "Datos históricos obtenidos: ${datosHistoricos.size} meses")
@@ -170,8 +209,12 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
                     calcularEstadisticas(datosHistoricos)
                 }
 
-                // Calcular predicción usando regresión lineal
-                val resultado = repository.obtenerYPredecirSla(meses = meses, anio = anio, mes = mesFin)
+                // Calcular predicción usando regresión lineal (FILTRADO por tipo SLA)
+                val resultado = repository.obtenerYPredecirSlaPorTipo(
+                    tipoSla = tipoSla,
+                    anio = anio,
+                    idArea = null
+                )
                 val datosSla = resultado.first      // Triple<Double, Double, Double>? - puede ser null
                 val valorReal = resultado.second    // Double? (null si no existe el mes siguiente)
                 val mensajeError = resultado.third  // String? (mensaje de error si falló)

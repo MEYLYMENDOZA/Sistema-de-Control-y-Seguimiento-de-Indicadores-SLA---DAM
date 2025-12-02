@@ -53,8 +53,10 @@ fun PrediccionScreen(
     // Filtros dinamicos desde la base de datos
     val aniosDisponibles by vm.aniosDisponibles.collectAsState()
     val mesesDisponibles by vm.mesesDisponibles.collectAsState()
+    val tiposSlaDisponibles by vm.tiposSlaDisponibles.collectAsState()
 
     // Estado local para filtros - usa el primer anio disponible o vacio
+    var tipoSlaSeleccionado by remember { mutableStateOf("SLA001") }
     var mesInicioSeleccionado by remember { mutableStateOf("Enero") }
     var mesFinSeleccionado by remember { mutableStateOf("Diciembre") }
     var anioSeleccionado by remember { mutableStateOf("") }
@@ -79,6 +81,13 @@ fun PrediccionScreen(
         return null
     }
 
+    // Cuando se carguen los tipos SLA, seleccionar el primero
+    LaunchedEffect(tiposSlaDisponibles) {
+        if (tiposSlaDisponibles.isNotEmpty() && tipoSlaSeleccionado.isEmpty()) {
+            tipoSlaSeleccionado = tiposSlaDisponibles.first().first
+        }
+    }
+
     // Cuando se carguen los anios disponibles, seleccionar el mas reciente
     LaunchedEffect(aniosDisponibles) {
         if (aniosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
@@ -94,13 +103,20 @@ fun PrediccionScreen(
             // Cargar datos automáticamente cuando hay año seleccionado
             val mesInicio = mesToIndex(mesInicioSeleccionado)
             val mesFin = mesToIndex(mesFinSeleccionado)
-            vm.cargarYPredecir(mesInicio = mesInicio, mesFin = mesFin, anio = anioInt, meses = 12)
+            vm.cargarYPredecir(
+                tipoSla = tipoSlaSeleccionado,
+                mesInicio = mesInicio,
+                mesFin = mesFin,
+                anio = anioInt,
+                meses = 12
+            )
         }
     }
 
     LaunchedEffect(Unit) {
-        // Solo cargar años disponibles, no datos todavía
+        // Cargar años y tipos SLA disponibles
         vm.cargarAniosDisponibles()
+        vm.cargarTiposSlaDisponibles()
     }
 
     Scaffold {
@@ -128,10 +144,19 @@ fun PrediccionScreen(
                     val mesInicio = mesToIndex(mesInicioSeleccionado)
                     val mesFin = mesToIndex(mesFinSeleccionado)
                     val anioInt = anioSeleccionado.toIntOrNull()
-                    vm.cargarYPredecir(mesInicio = mesInicio, mesFin = mesFin, anio = anioInt, meses = 12)
+                    vm.cargarYPredecir(
+                        tipoSla = tipoSlaSeleccionado,
+                        mesInicio = mesInicio,
+                        mesFin = mesFin,
+                        anio = anioInt,
+                        meses = 12
+                    )
                 },
                 habilitado = !cargando,
                 usandoDatosDemo = usandoDatosDemo,
+                tipoSlaSeleccionado = tipoSlaSeleccionado,
+                onTipoSlaSeleccionado = { tipoSlaSeleccionado = it },
+                tiposSlaDisponibles = tiposSlaDisponibles,
                 mesInicioSeleccionado = mesInicioSeleccionado,
                 onMesInicioSeleccionado = { mesInicioSeleccionado = it },
                 mesFinSeleccionado = mesFinSeleccionado,
@@ -235,6 +260,9 @@ private fun BarraFiltros(
     onActualizar: () -> Unit,
     habilitado: Boolean,
     usandoDatosDemo: Boolean,
+    tipoSlaSeleccionado: String,
+    onTipoSlaSeleccionado: (String) -> Unit,
+    tiposSlaDisponibles: List<Pair<String, String>>,
     mesInicioSeleccionado: String,
     onMesInicioSeleccionado: (String) -> Unit,
     mesFinSeleccionado: String,
@@ -317,6 +345,9 @@ private fun BarraFiltros(
 
             // Selectores de filtros
             SelectorMesAnio(
+                tipoSlaSeleccionado = tipoSlaSeleccionado,
+                onTipoSlaSeleccionado = onTipoSlaSeleccionado,
+                tiposSlaDisponibles = tiposSlaDisponibles,
                 mesInicioSeleccionado = mesInicioSeleccionado,
                 onMesInicioSeleccionado = onMesInicioSeleccionado,
                 mesFinSeleccionado = mesFinSeleccionado,
@@ -335,6 +366,9 @@ private fun BarraFiltros(
 
 @Composable
 private fun SelectorMesAnio(
+    tipoSlaSeleccionado: String,
+    onTipoSlaSeleccionado: (String) -> Unit,
+    tiposSlaDisponibles: List<Pair<String, String>>,
     mesInicioSeleccionado: String,
     onMesInicioSeleccionado: (String) -> Unit,
     mesFinSeleccionado: String,
@@ -381,11 +415,63 @@ private fun SelectorMesAnio(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Rango de Período para Predicción",
+                text = "Filtros para Predicción SLA",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF202124)
             )
+
+            // Selector de Tipo SLA
+            var expandedTipoSla by remember { mutableStateOf(false) }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Tipo de SLA",
+                    fontSize = 12.sp,
+                    color = GrisTexto,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Box {
+                    OutlinedButton(
+                        onClick = { expandedTipoSla = true },
+                        enabled = habilitado,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GrisTexto
+                        ),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            text = tiposSlaDisponibles.firstOrNull { it.first == tipoSlaSeleccionado }?.second ?: tipoSlaSeleccionado,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Expandir",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedTipoSla,
+                        onDismissRequest = { expandedTipoSla = false }
+                    ) {
+                        tiposSlaDisponibles.forEach { (codigo, descripcion) ->
+                            DropdownMenuItem(
+                                text = { Text(descripcion) },
+                                onClick = {
+                                    onTipoSlaSeleccionado(codigo)
+                                    expandedTipoSla = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             // Selector de Año
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -908,15 +994,15 @@ private fun GraficoHistoricoYPrediccion(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
+                    .height(350.dp)  // ← Aumentado de 280dp a 350dp
                     .padding(vertical = 8.dp)
             ) {
                 val width = size.width
                 val height = size.height
-                val paddingLeft = 70f
-                val paddingRight = 50f
-                val paddingTop = 30f
-                val paddingBottom = 70f
+                val paddingLeft = 80f  // ← Aumentado de 70f a 80f
+                val paddingRight = 60f  // ← Aumentado de 50f a 60f
+                val paddingTop = 40f  // ← Aumentado de 30f a 40f
+                val paddingBottom = 100f  // ← Aumentado de 70f a 100f
 
                 val graphWidth = width - paddingLeft - paddingRight
                 val graphHeight = height - paddingTop - paddingBottom
@@ -1010,12 +1096,13 @@ private fun GraficoHistoricoYPrediccion(
                     drawContext.canvas.nativeCanvas.apply {
                         drawText(
                             String.format("%.0f%%", valor),
-                            paddingLeft - 10f,
-                            y + 5f,
+                            paddingLeft - 15f,  // ← Ajustado de -10f a -15f
+                            y + 8f,  // ← Ajustado de +5f a +8f
                             android.graphics.Paint().apply {
                                 color = android.graphics.Color.GRAY
-                                textSize = 28f
+                                textSize = 32f  // ← Aumentado de 28f a 32f
                                 textAlign = android.graphics.Paint.Align.RIGHT
+                                isFakeBoldText = true  // ← Agregado para mejor lectura
                             }
                         )
                     }
@@ -1087,22 +1174,22 @@ private fun GraficoHistoricoYPrediccion(
 
                     // Fondo para la etiqueta de predicción
                     val labelText = String.format("%.1f%%", prediccion)
-                    val labelY = y2 - 25f
+                    val labelY = y2 - 30f  // ← Aumentado de -25f a -30f
 
-                    // Fondo blanco con borde verde
+                    // Fondo blanco con borde verde (más grande)
                     drawRoundRect(
                         color = Color.White,
-                        topLeft = Offset(x2 - 35f, labelY - 25f),
-                        size = androidx.compose.ui.geometry.Size(70f, 30f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+                        topLeft = Offset(x2 - 45f, labelY - 30f),  // ← Aumentado de -35f/-25f a -45f/-30f
+                        size = androidx.compose.ui.geometry.Size(90f, 38f),  // ← Aumentado de 70f/30f a 90f/38f
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)  // ← Aumentado de 6f a 8f
                     )
 
                     drawRoundRect(
                         color = Verde,
-                        topLeft = Offset(x2 - 35f, labelY - 25f),
-                        size = androidx.compose.ui.geometry.Size(70f, 30f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f),
-                        style = Stroke(width = 2f)
+                        topLeft = Offset(x2 - 45f, labelY - 30f),  // ← Aumentado
+                        size = androidx.compose.ui.geometry.Size(90f, 38f),  // ← Aumentado
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f),  // ← Aumentado
+                        style = Stroke(width = 3f)  // ← Aumentado de 2f a 3f
                     )
 
                     // Etiqueta de predicción
@@ -1113,7 +1200,7 @@ private fun GraficoHistoricoYPrediccion(
                             labelY,
                             android.graphics.Paint().apply {
                                 color = android.graphics.Color.rgb(56, 142, 60)
-                                textSize = 28f
+                                textSize = 32f  // ← Aumentado de 28f a 32f
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 isFakeBoldText = true
                             }
@@ -1121,45 +1208,71 @@ private fun GraficoHistoricoYPrediccion(
                     }
                 }
 
-                // Etiquetas del eje X - Mostrar todos los meses
+                // Etiquetas del eje X - Mostrar etiquetas optimizadas
                 datosHistoricos.forEachIndexed { index, punto ->
                     val x = indexToX(index, datosHistoricos.size + 1)
-                    val y = paddingTop + graphHeight + 25f
 
-                    // Nombre del mes (primera línea)
-                    drawContext.canvas.nativeCanvas.apply {
-                        drawText(
-                            punto.mes,
-                            x,
-                            y,
-                            android.graphics.Paint().apply {
-                                color = android.graphics.Color.GRAY
-                                textSize = 22f
-                                textAlign = android.graphics.Paint.Align.CENTER
-                            }
-                        )
+                    // Si hay más de 6 meses, mostrar etiquetas alternadas
+                    val mostrarEtiqueta = if (datosHistoricos.size > 6) {
+                        index % 2 == 0 // Mostrar solo índices pares
+                    } else {
+                        true // Mostrar todos
                     }
 
-                    // Valor del mes (segunda línea - más pequeño)
-                    drawContext.canvas.nativeCanvas.apply {
-                        drawText(
-                            String.format("%.0f%%", punto.valor),
-                            x,
-                            y + 20f,
-                            android.graphics.Paint().apply {
-                                color = android.graphics.Color.rgb(33, 150, 243)
-                                textSize = 20f
-                                textAlign = android.graphics.Paint.Align.CENTER
-                                isFakeBoldText = true
-                            }
-                        )
+                    if (mostrarEtiqueta) {
+                        val y = paddingTop + graphHeight + 30f
+
+                        // Nombre del mes (primera línea) - más pequeño
+                        drawContext.canvas.nativeCanvas.apply {
+                            drawText(
+                                punto.mes,
+                                x,
+                                y,
+                                android.graphics.Paint().apply {
+                                    color = android.graphics.Color.GRAY
+                                    textSize = 20f  // Reducido de 26f a 20f
+                                    textAlign = android.graphics.Paint.Align.CENTER
+                                    isFakeBoldText = true
+                                }
+                            )
+                        }
+
+                        // Valor del mes (segunda línea)
+                        drawContext.canvas.nativeCanvas.apply {
+                            drawText(
+                                String.format("%.0f%%", punto.valor),
+                                x,
+                                y + 22f,
+                                android.graphics.Paint().apply {
+                                    color = android.graphics.Color.rgb(33, 150, 243)
+                                    textSize = 19f  // Reducido de 24f a 19f
+                                    textAlign = android.graphics.Paint.Align.CENTER
+                                    isFakeBoldText = true
+                                }
+                            )
+                        }
+                    } else {
+                        // Para meses no etiquetados, solo mostrar el valor como punto pequeño
+                        val y = paddingTop + graphHeight + 35f
+                        drawContext.canvas.nativeCanvas.apply {
+                            drawText(
+                                "•",
+                                x,
+                                y,
+                                android.graphics.Paint().apply {
+                                    color = android.graphics.Color.GRAY
+                                    textSize = 16f
+                                    textAlign = android.graphics.Paint.Align.CENTER
+                                }
+                            )
+                        }
                     }
                 }
 
                 // Etiqueta "PRÓXIMO MES" en el eje X para predicción
                 if (prediccion != null) {
                     val x = indexToX(datosHistoricos.size, datosHistoricos.size + 1)
-                    val y = paddingTop + graphHeight + 25f
+                    val y = paddingTop + graphHeight + 30f  // ← Aumentado de 25f a 30f
 
                     // Texto "PRÓXIMO" (primera línea)
                     drawContext.canvas.nativeCanvas.apply {
@@ -1169,7 +1282,7 @@ private fun GraficoHistoricoYPrediccion(
                             y,
                             android.graphics.Paint().apply {
                                 color = android.graphics.Color.rgb(76, 175, 80)
-                                textSize = 20f
+                                textSize = 24f  // ← Aumentado de 20f a 24f
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 isFakeBoldText = true
                             }
@@ -1181,10 +1294,10 @@ private fun GraficoHistoricoYPrediccion(
                         drawText(
                             "MES",
                             x,
-                            y + 18f,
+                            y + 22f,  // ← Aumentado de 18f a 22f
                             android.graphics.Paint().apply {
                                 color = android.graphics.Color.rgb(76, 175, 80)
-                                textSize = 20f
+                                textSize = 24f  // ← Aumentado de 20f a 24f
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 isFakeBoldText = true
                             }
@@ -1196,10 +1309,10 @@ private fun GraficoHistoricoYPrediccion(
                         drawText(
                             String.format("%.1f%%", prediccion),
                             x,
-                            y + 38f,
+                            y + 47f,  // ← Aumentado de 38f a 47f
                             android.graphics.Paint().apply {
                                 color = android.graphics.Color.rgb(56, 142, 60)
-                                textSize = 22f
+                                textSize = 26f  // ← Aumentado de 22f a 26f
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 isFakeBoldText = true
                             }

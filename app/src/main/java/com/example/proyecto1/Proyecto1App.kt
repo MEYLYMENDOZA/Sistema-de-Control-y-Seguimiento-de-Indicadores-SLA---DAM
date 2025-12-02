@@ -32,14 +32,22 @@ class Proyecto1App : Application() {
             android.util.Log.d("Proyecto1App", "Firestore settings aplicados")
 
             // ✅ Inicializar Retrofit de forma ASÍNCRONA para no bloquear el hilo principal
-            android.util.Log.d("Proyecto1App", "🔍 Iniciando detección automática de API (asíncrono)...")
+            android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
+            android.util.Log.d("Proyecto1App", "🔍 INICIANDO DETECCIÓN AUTOMÁTICA DE API")
+            android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
             applicationScope.launch {
                 try {
                     com.example.proyecto1.data.remote.api.RetrofitClient.initialize(this@Proyecto1App)
                     val baseUrl = com.example.proyecto1.data.remote.api.RetrofitClient.getCurrentBaseUrl()
-                    android.util.Log.d("Proyecto1App", "✅ API configurada: $baseUrl")
+                    android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
+                    android.util.Log.d("Proyecto1App", "✅ API CONFIGURADA EXITOSAMENTE")
+                    android.util.Log.d("Proyecto1App", "📍 URL: $baseUrl")
+                    android.util.Log.d("Proyecto1App", "═══════════════════════════════════════════")
                 } catch (e: Exception) {
-                    android.util.Log.e("Proyecto1App", "❌ Error al configurar API", e)
+                    android.util.Log.e("Proyecto1App", "═══════════════════════════════════════════")
+                    android.util.Log.e("Proyecto1App", "❌ ERROR AL CONFIGURAR API")
+                    android.util.Log.e("Proyecto1App", "Error: ${e.message}")
+                    android.util.Log.e("Proyecto1App", "═══════════════════════════════════════════", e)
                 }
             }
 

@@ -316,6 +316,102 @@ class SlaRepository {
         }
     }
 
+    suspend fun obtenerTiposSlaDisponibles(): List<Pair<String, String>> {
+        return try {
+            val response = apiService.obtenerTiposSlaDisponibles()
+            if (response.isSuccessful && response.body() != null) {
+                response.body()!!.map { it.codigo to it.descripcion }
+            } else {
+                // Fallback si el endpoint no existe
+                listOf("SLA001" to "SLA Tipo 1", "SLA002" to "SLA Tipo 2")
+            }
+        } catch (_: Exception) {
+            // Fallback si hay error de conexión
+            listOf("SLA001" to "SLA Tipo 1", "SLA002" to "SLA Tipo 2")
+        }
+    }
+
+    /**
+     * Obtiene datos y calcula predicción FILTRANDO por tipo de SLA
+     * Usa el endpoint /api/reporte/solicitudes-tendencia que ya filtra en backend
+     */
+    suspend fun obtenerYPredecirSlaPorTipo(
+        tipoSla: String,
+        anio: Int? = null,
+        idArea: Int? = null
+    ): Triple<Triple<Double, Double, Double>?, Double?, String?> {
+        return try {
+            Log.d(TAG, "[Predicción] 🔍 Obteniendo datos: tipoSla=$tipoSla, anio=$anio")
+            val response = apiService.obtenerSolicitudesTendencia(
+                anio = anio,
+                tipoSla = tipoSla,
+                idArea = idArea
+            )
+
+            if (!response.isSuccessful) {
+                Log.e(TAG, "[Predicción] ❌ Error HTTP: ${response.code()}")
+                return Triple(null, null, "Error del servidor: ${response.code()}")
+            }
+
+            val body = response.body()
+            if (body == null || body.datosMensuales.isEmpty()) {
+                Log.w(TAG, "[Predicción] ⚠️ No hay datos en la respuesta")
+                return Triple(null, null, "No hay datos para el período seleccionado.")
+            }
+
+            Log.d(TAG, "[Predicción] 📊 Meses recibidos: ${body.datosMensuales.size}")
+
+            val datosMensuales = body.datosMensuales
+            datosMensuales.forEach { mes ->
+                Log.d(TAG, "[Predicción]   • ${mes.mesNombre}: ${mes.totalCasos} casos, ${mes.porcentajeCumplimiento}%")
+            }
+
+            if (datosMensuales.size < 2) {
+                Log.w(TAG, "[Predicción] ⚠️ Datos insuficientes: ${datosMensuales.size} meses (se necesitan al menos 2)")
+                return Triple(null, null, "Datos insuficientes (se necesitan al menos 2 meses con datos).")
+            }
+
+            // Calcular regresión lineal
+            val x = datosMensuales.mapIndexed { index, _ -> (index + 1).toDouble() }.toDoubleArray()
+            val y = datosMensuales.map { it.porcentajeCumplimiento }.toDoubleArray()
+            val model = LinearRegression(x, y)
+            val prediccion = model.predict((x.maxOrNull() ?: 0.0) + 1.0)
+
+            Log.d(TAG, "[Predicción] ✅ Predicción calculada: $prediccion% (slope=${model.slope}, intercept=${model.intercept})")
+            Triple(Triple(prediccion, model.slope, model.intercept), null, null)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "[Predicción] ❌ Error inesperado", e)
+            Triple(null, null, "Error de conexión: ${e.message}")
+        }
+    }
+
+    /**
+     * Obtiene datos históricos FILTRADOS por tipo de SLA
+     */
+    suspend fun obtenerDatosHistoricosPorTipo(
+        tipoSla: String,
+        anio: Int? = null,
+        idArea: Int? = null
+    ): List<SlaDataPoint> {
+        return try {
+            val response = apiService.obtenerSolicitudesTendencia(
+                anio = anio,
+                tipoSla = tipoSla,
+                idArea = idArea
+            )
+
+            if (!response.isSuccessful || response.body() == null) return emptyList()
+
+            val datosMensuales = response.body()!!.datosMensuales
+            datosMensuales.mapIndexed { index, mes ->
+                SlaDataPoint(mes.mesNombre, mes.porcentajeCumplimiento, index + 1)
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     private data class EstadisticaMes(val mes: String, val total: Int, val cumplidas: Int, val incumplidas: Int, val porcentajeCumplimiento: Double)
 
     // --- Métodos para la pantalla de Configuración ---

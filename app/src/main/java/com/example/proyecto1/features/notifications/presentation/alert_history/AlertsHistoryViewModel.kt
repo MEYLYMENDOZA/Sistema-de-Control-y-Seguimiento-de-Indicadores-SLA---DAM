@@ -2,7 +2,7 @@ package com.example.proyecto1.features.notifications.presentation.alert_history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.remote.RetrofitClient // Asegúrate de importar tu cliente
+import com.example.proyecto1.data.remote.api.RetrofitClient
 import com.example.proyecto1.features.notifications.data.model.AlertaCreateDto
 import com.example.proyecto1.features.notifications.data.model.PersonalDto
 import com.example.proyecto1.features.notifications.domain.model.AlertCriticality
@@ -29,7 +29,7 @@ class AlertsHistoryViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // 1. Ejecutar el motor en el servidor
-                val response = RetrofitClient.api.procesarSlas()
+                val response = RetrofitClient.apiService.procesarSlas()
 
                 if (response.isSuccessful) {
                     println("Motor SLA ejecutado con éxito.")
@@ -61,7 +61,7 @@ class AlertsHistoryViewModel : ViewModel() {
             try {
                 // INTENTO 1: CONEXIÓN REAL
                 // Llamamos a la API
-                val alertasDto = RetrofitClient.api.getAlertas()
+                val alertasDto = RetrofitClient.apiService.getAlertas()
 
                 // Convertimos a datos de UI
                 val realAlerts = alertasDto.map { it.toDomain() }
@@ -109,7 +109,7 @@ class AlertsHistoryViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 // Llamamos a la API
-                val personas = RetrofitClient.api.getPersonal()
+                val personas = RetrofitClient.apiService.getPersonal()
                 _uiState.update { it.copy(personalList = personas) }
             } catch (e: Exception) {
                 println("Error cargando personal: ${e.message}")
@@ -125,7 +125,7 @@ class AlertsHistoryViewModel : ViewModel() {
                 val idInt = alertId.toInt()
 
                 // 2. Llamamos a la API para borrar en SQL Server
-                val response = RetrofitClient.api.deleteAlerta(idInt)
+                val response = RetrofitClient.apiService.deleteAlerta(idInt)
 
                 if (response.isSuccessful) {
                     println("Alerta eliminada de la BD correctamente.")
@@ -166,7 +166,7 @@ class AlertsHistoryViewModel : ViewModel() {
 
             try {
                 _uiState.update { it.copy(isLoading = true) }
-                val response = RetrofitClient.api.createAlerta(nuevaAlerta)
+                val response = RetrofitClient.apiService.createAlerta(nuevaAlerta)
 
                 if (response.isSuccessful) {
                     println("¡Alerta creada con responsable y nivel!")

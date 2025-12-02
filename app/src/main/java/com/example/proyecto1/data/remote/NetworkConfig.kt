@@ -23,11 +23,15 @@ object NetworkConfig {
 
     // IPs comunes para probar primero (más rápido)
     private val COMMON_IPS = listOf(
-        "172.19.5.121",     // Red actual
-        "192.168.100.4",    // Red anterior
-        "192.168.1.100",    // Común en redes domésticas
-        "192.168.0.100",    // Común en redes domésticas
-        "10.0.0.100"        // Común en redes corporativas
+        "192.168.100.4",    // 👈 IP ACTUAL - PRUEBA PRIMERO
+        "172.19.5.121",     // Red WiFi común 1
+        "172.19.7.121",     // Red WiFi común 2
+        "172.19.7.213",     // Red WiFi común 3
+        "192.168.1.100",    // Router común
+        "192.168.0.100",    // Router común
+        "192.168.18.246",   // Red adicional
+        "10.0.0.100",       // Red corporativa
+        "10.0.2.2"          // Emulador Android
     )
 
     /**
@@ -71,7 +75,7 @@ object NetworkConfig {
 
         // 4. Fallback a última IP conocida o localhost
         Log.w(TAG, "⚠️ No se pudo detectar el servidor, usando fallback")
-        lastIp?.let { formatUrl(it) } ?: "http://172.19.5.121:$API_PORT/"
+        lastIp?.let { formatUrl(it) } ?: "http://192.168.100.4:$API_PORT/"
     }
 
     /**

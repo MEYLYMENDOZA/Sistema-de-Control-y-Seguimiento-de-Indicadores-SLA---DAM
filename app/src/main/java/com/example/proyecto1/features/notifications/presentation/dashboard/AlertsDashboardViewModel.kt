@@ -2,7 +2,7 @@ package com.example.proyecto1.features.notifications.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto1.data.remote.RetrofitClient // Importa tu cliente
+import com.example.proyecto1.data.remote.api.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -34,7 +34,7 @@ class AlertsDashboardViewModel : ViewModel() {
 
             try {
                 // 1. Llamamos a la API (Trae todas las alertas)
-                val alertasDto = RetrofitClient.api.getAlertas()
+                val alertasDto = RetrofitClient.apiService.getAlertas()
 
                 // 2. CALCULAMOS LOS NÚMEROS REALES
                 // Total de alertas activas
