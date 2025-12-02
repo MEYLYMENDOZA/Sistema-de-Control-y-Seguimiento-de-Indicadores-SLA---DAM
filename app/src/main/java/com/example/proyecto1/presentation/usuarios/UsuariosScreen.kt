@@ -184,7 +184,8 @@ fun UsuariosScreen(
                     } else {
                         viewModel.crearUsuario(usuarioDto)
                     }
-                }
+                },
+                onRetryRoles = { viewModel.reintentarCargarRoles() }
             )
         }
 
@@ -192,12 +193,10 @@ fun UsuariosScreen(
         uiState.error?.let { error ->
             AlertDialog(
                 onDismissRequest = { viewModel.limpiarError() },
-                title = { Text("Error") },
+                title = { Text("Error", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 text = { Text(error) },
                 confirmButton = {
-                    TextButton(onClick = { viewModel.limpiarError() }) {
-                        Text("OK")
-                    }
+                    TextButton(onClick = { viewModel.limpiarError() }) { Text("OK") }
                 }
             )
         }
@@ -210,7 +209,6 @@ fun UsuarioCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -245,13 +243,14 @@ fun UsuarioCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     // Nombre completo (si existe)
+                    val personal = usuario.personal
+                    val nombres = personal?.nombres ?: ""
+                    val apellidos = personal?.apellidos ?: ""
+
                     val nombreCompleto = buildString {
-                        usuario.personal?.nombres?.let { append(it) }
-                        if (usuario.personal?.nombres?.isNotBlank() == true &&
-                            usuario.personal?.apellidos?.isNotBlank() == true) {
-                            append(" ")
-                        }
-                        usuario.personal?.apellidos?.let { append(it) }
+                        if (nombres.isNotBlank()) append(nombres)
+                        if (nombres.isNotBlank() && apellidos.isNotBlank()) append(" ")
+                        if (apellidos.isNotBlank()) append(apellidos)
                     }.trim()
 
                     if (nombreCompleto.isNotBlank()) {
@@ -376,71 +375,46 @@ fun FormularioUsuarioDialog(
     usuario: UsuarioDto?,
     roles: List<com.example.proyecto1.data.remote.dto.RolSistemaDto>,
     onDismiss: () -> Unit,
-    onSave: (CrearUsuarioDto) -> Unit
+    onSave: (CrearUsuarioDto) -> Unit,
+    onRetryRoles: () -> Unit
 ) {
     var username by remember { mutableStateOf(usuario?.username ?: "") }
-    var nombres by remember { mutableStateOf(usuario?.personal?.nombres ?: "") }
-    var apellidos by remember { mutableStateOf(usuario?.personal?.apellidos ?: "") }
+    // No pedimos nombres/apellidos en el formulario simple
     var correo by remember { mutableStateOf(usuario?.correo ?: "") }
     var password by remember { mutableStateOf("") }
     var mostrarPassword by remember { mutableStateOf(false) }
 
-    // Filtrar roles para mostrar solo Técnico (1004) y Cliente (1005)
-    val rolesFiltrados = remember(roles) {
-        if (roles.isEmpty()) {
-            // Si no hay roles de la API, crear roles por defecto
-            listOf(
-                com.example.proyecto1.data.remote.dto.RolSistemaDto(
-                    idRolSistema = 1004,
-                    codigo = "TECNICO",
-                    nombre = "Técnico",
-                    descripcion = "Soporte técnico",
-                    esActivo = true
-                ),
-                com.example.proyecto1.data.remote.dto.RolSistemaDto(
-                    idRolSistema = 1005,
-                    codigo = "CLIENTE",
-                    nombre = "Cliente",
-                    descripcion = "Usuario solicitante",
-                    esActivo = true
-                )
-            )
-        } else {
-            roles.filter { it.idRolSistema == 1004 || it.idRolSistema == 1005 }
-        }
+    // Si roles está vacío, mostramos un mensaje y botón de reintento
+    if (roles.isEmpty()) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Roles no disponibles") },
+            text = { Text("No se cargaron los roles desde el servidor. Verifica la conexión con la API o presiona reintentar.") },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text("Cerrar") }
+            },
+            dismissButton = {
+                TextButton(onClick = onRetryRoles) { Text("Reintentar") }
+            }
+        )
+        return
     }
+
+    // Filtrar roles para mostrar dinámicamente (usar los que trae la API)
+    val rolesFiltrados = remember(roles) { roles }
 
     var rolSeleccionado by remember {
         mutableStateOf(
-            usuario?.idRolSistema ?: rolesFiltrados.firstOrNull()?.idRolSistema ?: 1005
+            usuario?.idRolSistema ?: rolesFiltrados.firstOrNull()?.idRolSistema ?: 0
         )
     }
     var expandedRol by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Título
-                Text(
-                    text = if (usuario == null) "Agregar Usuario" else "Editar Usuario",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                HorizontalDivider()
-
+        title = { Text(if (usuario == null) "Agregar Usuario" else "Editar Usuario", style = MaterialTheme.typography.headlineSmall) },
+        text = {
+            Column {
                 // Nombre de usuario
                 OutlinedTextField(
                     value = username,
@@ -449,33 +423,13 @@ fun FormularioUsuarioDialog(
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Default.Person, null) },
                     singleLine = true,
-                    enabled = usuario == null, // No editable si es edición
+                    enabled = usuario == null,
                     placeholder = { Text("Ejemplo: jperez") }
                 )
 
-                // Nombres
-                OutlinedTextField(
-                    value = nombres,
-                    onValueChange = { nombres = it },
-                    label = { Text("Nombres *") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Default.Person, null) },
-                    singleLine = true,
-                    placeholder = { Text("Ejemplo: Juan Carlos") }
-                )
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Apellidos
-                OutlinedTextField(
-                    value = apellidos,
-                    onValueChange = { apellidos = it },
-                    label = { Text("Apellidos *") },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Default.Person, null) },
-                    singleLine = true,
-                    placeholder = { Text("Ejemplo: Pérez García") }
-                )
-
-                // Correo electrónico
+                // Correo
                 OutlinedTextField(
                     value = correo,
                     onValueChange = { correo = it },
@@ -486,13 +440,13 @@ fun FormularioUsuarioDialog(
                     placeholder = { Text("ejemplo@correo.com") }
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Contraseña
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = {
-                        Text(if (usuario == null) "Contraseña *" else "Nueva contraseña (opcional)")
-                    },
+                    label = { Text(if (usuario == null) "Contraseña *" else "Nueva contraseña (opcional)") },
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Default.Lock, null) },
                     trailingIcon = {
@@ -503,28 +457,25 @@ fun FormularioUsuarioDialog(
                             )
                         }
                     },
-                    visualTransformation = if (mostrarPassword)
-                        VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    visualTransformation = if (mostrarPassword) VisualTransformation.None else PasswordVisualTransformation(),
                     singleLine = true,
                     placeholder = { Text("Mínimo 6 caracteres") }
                 )
 
-                // Selector de Rol
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Selector de rol (simplificado dentro del dialog)
                 ExposedDropdownMenuBox(
                     expanded = expandedRol,
                     onExpandedChange = { expandedRol = it }
                 ) {
                     OutlinedTextField(
-                        value = rolesFiltrados.find { it.idRolSistema == rolSeleccionado }?.nombre ?: "Cliente",
+                        value = rolesFiltrados.find { it.idRolSistema == rolSeleccionado }?.nombre ?: "",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Rol *") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRol) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
+                        modifier = Modifier.fillMaxWidth(),
                         leadingIcon = { Icon(Icons.Default.AccountCircle, null) }
                     )
                     ExposedDropdownMenu(
@@ -534,99 +485,38 @@ fun FormularioUsuarioDialog(
                         rolesFiltrados.forEach { rol ->
                             DropdownMenuItem(
                                 text = { Text(rol.nombre) },
-                                onClick = {
-                                    rolSeleccionado = rol.idRolSistema
-                                    expandedRol = false
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        if (rol.codigo == "TECNICO") Icons.Default.Build else Icons.Default.Person,
-                                        contentDescription = null,
-                                        tint = Color(0xFF2196F3)
-                                    )
-                                }
+                                onClick = { rolSeleccionado = rol.idRolSistema; expandedRol = false },
+                                leadingIcon = { Icon(if (rol.codigo.uppercase() == "TECNICO") Icons.Default.Build else Icons.Default.Person, contentDescription = null, tint = Color(0xFF2196F3)) }
                             )
                         }
                     }
                 }
 
-                // Fecha de creación (solo lectura si es edición)
-                if (usuario != null) {
-                    usuario.creadoEn?.let { fecha ->
-                        OutlinedTextField(
-                            value = formatearFecha(fecha),
-                            onValueChange = {},
-                            label = { Text("Fecha de creación") },
-                            modifier = Modifier.fillMaxWidth(),
-                            leadingIcon = { Icon(Icons.Default.DateRange, null) },
-                            enabled = false,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                    }
-                }
-
-                HorizontalDivider()
-
-                // Botones
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Cancelar")
-                    }
-                    Button(
-                        onClick = {
-                            val passwordFinal = if (usuario != null && password.isBlank()) {
-                                "sin_cambio" // Contraseña sin cambio
-                            } else {
-                                password
-                            }
-
-                            onSave(
-                                CrearUsuarioDto(
-                                    username = username,
-                                    correo = correo,
-                                    password = passwordFinal,
-                                    idRolSistema = rolSeleccionado,
-                                    idEstadoUsuario = 1, // Activo por defecto
-                                    nombres = nombres.ifBlank { null },
-                                    apellidos = apellidos.ifBlank { null },
-                                    documento = null,
-                                    telefono = null
-                                )
-                            )
-                        },
-                        enabled = username.isNotBlank() &&
-                                  nombres.isNotBlank() &&
-                                  apellidos.isNotBlank() &&
-                                  correo.isNotBlank() &&
-                                  (usuario != null || password.length >= 6),
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2196F3)
-                        )
-                    ) {
-                        Icon(
-                            if (usuario == null) Icons.Default.Add else Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (usuario == null) "Crear" else "Guardar")
-                    }
-                }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val passwordFinal = if (usuario != null && password.isBlank()) "sin_cambio" else password
+                onSave(
+                    CrearUsuarioDto(
+                        username = username,
+                        correo = correo,
+                        password = passwordFinal,
+                        idRolSistema = rolSeleccionado,
+                        idEstadoUsuario = 1,
+                        nombres = null,
+                        apellidos = null,
+                        documento = null,
+                        telefono = null
+                    )
+                )
+            }) { Text(if (usuario == null) "Crear" else "Guardar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
-    }
+    )
+
 }
 
 // Función helper para formatear fechas
@@ -636,8 +526,7 @@ private fun formatearFecha(fechaISO: String): String {
         val outputFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val date = inputFormat.parse(fechaISO)
         date?.let { outputFormat.format(it) } ?: fechaISO
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         fechaISO.substring(0, 10) // Fallback: solo la fecha
     }
 }
-

@@ -6,7 +6,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object RetrofitClient {
 
     // URL del backend .NET Core - Puerto 5120
-    private const val BASE_URL = "http://10.0.2.2:5120/"
+    private const val BASE_URL = "http://192.168.100.4:5120/"
 
     val api: ApiService by lazy {
         Retrofit.Builder()

@@ -20,7 +20,7 @@ object RetrofitClient {
         BuildConfig.API_BASE_URL
     } catch (_: Exception) {
         // Fallback: 10.0.2.2 es localhost del PC desde el emulador Android - Puerto 5120
-        "http://10.0.2.2:5120/"
+        "http://192.168.100.4:5120/"
     }
 
     

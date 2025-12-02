@@ -3,9 +3,12 @@ package com.example.proyecto1.utils
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Environment
+import androidx.core.content.FileProvider
 import com.example.proyecto1.ui.report.ReporteGeneralDto
 import com.itextpdf.text.*
+import com.itextpdf.text.pdf.BaseFont
 import com.itextpdf.text.pdf.PdfPCell
 import com.itextpdf.text.pdf.PdfPTable
 import com.itextpdf.text.pdf.PdfWriter
@@ -24,13 +27,21 @@ class PdfExporter(private val context: Context) {
     private val colorCumple = BaseColor(76, 175, 80)
     private val colorNoCumple = BaseColor(229, 57, 53)
 
-    private val fontTitulo = Font(Font.FontFamily.HELVETICA, 18f, Font.BOLD, colorTexto)
-    private val fontSubtitulo = Font(Font.FontFamily.HELVETICA, 14f, Font.BOLD, colorTexto)
-    private val fontHeaderTabla = Font(Font.FontFamily.HELVETICA, 10f, Font.BOLD, BaseColor.WHITE)
-    private val fontNormal = Font(Font.FontFamily.HELVETICA, 10f, Font.NORMAL, colorTexto)
-    private val fontBold = Font(Font.FontFamily.HELVETICA, 10f, Font.BOLD, colorTexto)
-    private val fontGrande = Font(Font.FontFamily.HELVETICA, 24f, Font.BOLD, colorAzul)
-    private val fontPequeno = Font(Font.FontFamily.HELVETICA, 9f, Font.ITALIC, BaseColor.GRAY)
+    // Usar BaseFont con CP1252 y embebida para evitar problemas con acentos
+    private val baseFont: BaseFont = try {
+        BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.EMBEDDED)
+    } catch (e: Exception) {
+        // fallback a built-in
+        BaseFont.createFont()
+    }
+
+    private val fontTitulo = Font(baseFont, 18f, Font.BOLD, colorTexto)
+    private val fontSubtitulo = Font(baseFont, 14f, Font.BOLD, colorTexto)
+    private val fontHeaderTabla = Font(baseFont, 10f, Font.BOLD, BaseColor.WHITE)
+    private val fontNormal = Font(baseFont, 10f, Font.NORMAL, colorTexto)
+    private val fontBold = Font(baseFont, 10f, Font.BOLD, colorTexto)
+    private val fontGrande = Font(baseFont, 24f, Font.BOLD, colorAzul)
+    private val fontPequeno = Font(baseFont, 9f, Font.ITALIC, BaseColor.GRAY)
 
     // --- Data Classes (públicas para ser accesibles desde ViewModels) ---
     data class EstadisticasReporte(val mejorMes: String, val mejorValor: Double, val peorMes: String, val peorValor: Double, val promedio: Double, val tendencia: String)
@@ -99,10 +110,19 @@ class PdfExporter(private val context: Context) {
     // --- Componentes del PDF ---
 
     private fun crearArchivo(nombreBase: String): File {
-        val reportsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "SLA_Reports")
+        // Usar app-specific external directory para evitar problemas de permisos con FileProvider
+        val externalDocs = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+        val reportsDir = File(externalDocs, "SLA_Reports")
         if (!reportsDir.exists()) reportsDir.mkdirs()
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         return File(reportsDir, "${nombreBase}_$timestamp.pdf")
+    }
+
+    /**
+     * Helper para obtener Uri via FileProvider (el caller debe usar FLAG_GRANT_READ_URI_PERMISSION en el Intent)
+     */
+    fun getPdfUri(file: File): Uri {
+        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     }
 
     private fun agregarCabecera(document: Document) {
@@ -122,17 +142,31 @@ class PdfExporter(private val context: Context) {
 
         try {
             val resourceId = context.resources.getIdentifier("logo_tata", "drawable", context.packageName)
-            val logoBitmap = BitmapFactory.decodeResource(context.resources, resourceId)
-            val stream = ByteArrayOutputStream()
-            logoBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-            val image = Image.getInstance(stream.toByteArray())
-            image.scaleToFit(120f, 60f)
-            val cellLogo = PdfPCell(image)
-            cellLogo.border = Rectangle.NO_BORDER
-            cellLogo.horizontalAlignment = Element.ALIGN_RIGHT
-            table.addCell(cellLogo)
+            if (resourceId != 0) {
+                val logoBitmap = BitmapFactory.decodeResource(context.resources, resourceId)
+                if (logoBitmap != null) {
+                    val stream = ByteArrayOutputStream()
+                    logoBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                    val image = Image.getInstance(stream.toByteArray())
+                    image.scaleToFit(120f, 60f)
+                    val cellLogo = PdfPCell(image)
+                    cellLogo.border = Rectangle.NO_BORDER
+                    cellLogo.horizontalAlignment = Element.ALIGN_RIGHT
+                    table.addCell(cellLogo)
+                } else {
+                    val emptyCell = PdfPCell(Phrase("", fontNormal))
+                    emptyCell.border = Rectangle.NO_BORDER
+                    table.addCell(emptyCell)
+                }
+            } else {
+                val emptyCell = PdfPCell(Phrase("", fontNormal))
+                emptyCell.border = Rectangle.NO_BORDER
+                table.addCell(emptyCell)
+            }
         } catch (e: Exception) {
-            table.addCell(Phrase("No logo"))
+            val emptyCell = PdfPCell(Phrase("", fontNormal))
+            emptyCell.border = Rectangle.NO_BORDER
+            table.addCell(emptyCell)
         }
         
         document.add(table)

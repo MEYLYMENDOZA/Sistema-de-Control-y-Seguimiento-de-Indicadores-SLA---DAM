@@ -52,6 +52,7 @@ class UsuariosViewModel(
 
                 result.onSuccess { response ->
                     Log.d(TAG, "✅ ${response.total} usuarios cargados")
+                    // Asignar usuarios crudos y luego mapear nombres de rol si ya están cargados
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         usuarios = response.usuarios,
@@ -59,6 +60,10 @@ class UsuariosViewModel(
                         total = response.total,
                         error = null
                     )
+
+                    // Intentar asignar nombres de rol (si roles ya disponibles)
+                    asignarNombresDeRol()
+
                     aplicarFiltro()
                 }.onFailure { exception ->
                     Log.e(TAG, "❌ Error al cargar usuarios", exception)
@@ -77,7 +82,25 @@ class UsuariosViewModel(
         }
     }
 
-    private fun cargarRoles() {
+    // Asigna rolNombre a cada usuario basado en idRolSistema y la lista de roles cargada
+    private fun asignarNombresDeRol() {
+        val roles = _uiState.value.roles
+        if (roles.isEmpty()) return
+
+        val usuariosConRol = _uiState.value.usuarios.map { usuario ->
+            val nombreRol = roles.find { it.idRolSistema == usuario.idRolSistema }?.nombre
+            // usar copy() del data class UsuarioDto para setear rolNombre
+            usuario.copy(rolNombre = nombreRol ?: usuario.rolNombre)
+        }
+
+        _uiState.value = _uiState.value.copy(
+            usuarios = usuariosConRol,
+            usuariosFiltrados = usuariosConRol
+        )
+    }
+
+    // función pública para permitir reintentos desde la UI
+    fun cargarRoles() {
         viewModelScope.launch {
             try {
                 Log.d(TAG, "📊 Cargando roles del sistema...")
@@ -88,14 +111,15 @@ class UsuariosViewModel(
                         Log.d(TAG, "  - Rol ID: ${rol.idRolSistema}, Código: ${rol.codigo}, Nombre: ${rol.nombre}")
                     }
                     _uiState.value = _uiState.value.copy(roles = roles)
+                    // Una vez cargados los roles, asignarlos a los usuarios existentes
+                    asignarNombresDeRol()
                 }.onFailure { exception ->
                     Log.e(TAG, "❌ Error al cargar roles: ${exception.message}", exception)
-                    // Si falla, usar roles hardcodeados
                     Log.d(TAG, "⚠️ Usando roles por defecto (hardcoded)")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Excepción al cargar roles", e)
-                // Continuar con roles hardcodeados en el formulario
+                // Continuar con roles por defecto en UI
             }
         }
     }
@@ -110,12 +134,10 @@ class UsuariosViewModel(
                     _uiState.value = _uiState.value.copy(estados = estados)
                 }.onFailure { exception ->
                     Log.e(TAG, "❌ Error al cargar estados: ${exception.message}", exception)
-                    // Si falla, continuar con estado por defecto (Activo = 1)
                     Log.d(TAG, "⚠️ Usando estado por defecto (Activo = 1)")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Excepción al cargar estados", e)
-                // Continuar con estado por defecto
             }
         }
     }
@@ -274,6 +296,10 @@ class UsuariosViewModel(
         _uiState.value = _uiState.value.copy(usuariosFiltrados = filtrados)
         Log.d(TAG, "🔍 Búsqueda '$termino': ${filtrados.size} de ${_uiState.value.usuarios.size} usuarios")
     }
+
+    fun reintentarCargarRoles() {
+        cargarRoles()
+    }
 }
 
 class UsuariosViewModelFactory : ViewModelProvider.Factory {
@@ -285,4 +311,3 @@ class UsuariosViewModelFactory : ViewModelProvider.Factory {
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
-

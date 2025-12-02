@@ -6,10 +6,10 @@ import com.google.gson.annotations.SerializedName
  * DTO para login request
  */
 data class LoginRequestDto(
-    @SerializedName("username")
+    @SerializedName("Username")
     val username: String,
 
-    @SerializedName("password")
+    @SerializedName("Password")
     val password: String
 )
 
@@ -17,16 +17,16 @@ data class LoginRequestDto(
  * DTO para login response
  */
 data class LoginResponseDto(
-    @SerializedName("success")
+    @SerializedName("Success")
     val success: Boolean,
 
-    @SerializedName("message")
+    @SerializedName("Message")
     val message: String,
 
-    @SerializedName("token")
+    @SerializedName("Token")
     val token: String?,
 
-    @SerializedName("usuario")
+    @SerializedName("Usuario")
     val usuario: UsuarioDto?
 )
 
@@ -34,34 +34,34 @@ data class LoginResponseDto(
  * DTO para Usuario
  */
 data class UsuarioDto(
-    @SerializedName("idUsuario")
+    @SerializedName("IdUsuario")
     val idUsuario: Int,
 
-    @SerializedName("username")
+    @SerializedName("Username")
     val username: String,
 
-    @SerializedName("correo")
+    @SerializedName("Correo")
     val correo: String,
 
-    @SerializedName("idRolSistema")
+    @SerializedName("IdRolSistema")
     val idRolSistema: Int,
 
-    @SerializedName("rolNombre")
+    @SerializedName("RolNombre")
     val rolNombre: String?,
 
-    @SerializedName("idEstadoUsuario")
+    @SerializedName("IdEstadoUsuario")
     val idEstadoUsuario: Int,
 
-    @SerializedName("estadoNombre")
+    @SerializedName("EstadoNombre")
     val estadoNombre: String?,
 
-    @SerializedName("creadoEn")
+    @SerializedName("CreadoEn")
     val creadoEn: String?,
 
-    @SerializedName("ultimoLogin")
+    @SerializedName("UltimoLogin")
     val ultimoLogin: String?,
 
-    @SerializedName("personal")
+    @SerializedName("Personal")
     val personal: PersonalDto?
 )
 
@@ -69,19 +69,19 @@ data class UsuarioDto(
  * DTO para Personal
  */
 data class PersonalDto(
-    @SerializedName("idPersonal")
+    @SerializedName("IdPersonal")
     val idPersonal: Int,
 
-    @SerializedName("nombres")
+    @SerializedName("Nombres")
     val nombres: String?,
 
-    @SerializedName("apellidos")
+    @SerializedName("Apellidos")
     val apellidos: String?,
 
-    @SerializedName("documento")
+    @SerializedName("Documento")
     val documento: String?,
 
-    @SerializedName("estado")
+    @SerializedName("Estado")
     val estado: String?
 )
 
@@ -89,31 +89,31 @@ data class PersonalDto(
  * DTO para crear usuario
  */
 data class CrearUsuarioDto(
-    @SerializedName("username")
+    @SerializedName("Username")
     val username: String,
 
-    @SerializedName("correo")
+    @SerializedName("Correo")
     val correo: String,
 
-    @SerializedName("password")
+    @SerializedName("Password")
     val password: String,
 
-    @SerializedName("idRolSistema")
+    @SerializedName("IdRolSistema")
     val idRolSistema: Int,
 
-    @SerializedName("idEstadoUsuario")
+    @SerializedName("IdEstadoUsuario")
     val idEstadoUsuario: Int,
 
-    @SerializedName("nombres")
+    @SerializedName("Nombres")
     val nombres: String?,
 
-    @SerializedName("apellidos")
+    @SerializedName("Apellidos")
     val apellidos: String?,
 
-    @SerializedName("documento")
+    @SerializedName("Documento")
     val documento: String?,
 
-    @SerializedName("telefono")
+    @SerializedName("Telefono")
     val telefono: String?
 )
 
@@ -121,13 +121,13 @@ data class CrearUsuarioDto(
  * DTO para lista de usuarios
  */
 data class ListaUsuariosResponseDto(
-    @SerializedName("success")
+    @SerializedName("Success")
     val success: Boolean,
 
-    @SerializedName("usuarios")
+    @SerializedName("Usuarios")
     val usuarios: List<UsuarioDto>,
 
-    @SerializedName("total")
+    @SerializedName("Total")
     val total: Int
 )
 
@@ -135,19 +135,19 @@ data class ListaUsuariosResponseDto(
  * DTO para roles del sistema
  */
 data class RolSistemaDto(
-    @SerializedName("idRolSistema")
+    @SerializedName("IdRolSistema")
     val idRolSistema: Int,
 
-    @SerializedName("codigo")
+    @SerializedName("Codigo")
     val codigo: String,
 
-    @SerializedName("nombre")
+    @SerializedName("Nombre")
     val nombre: String,
 
-    @SerializedName("descripcion")
+    @SerializedName("Descripcion")
     val descripcion: String?,
 
-    @SerializedName("esActivo")
+    @SerializedName("EsActivo")
     val esActivo: Boolean
 )
 
@@ -155,13 +155,12 @@ data class RolSistemaDto(
  * DTO para estados de usuario
  */
 data class EstadoUsuarioDto(
-    @SerializedName("idEstadoUsuario")
+    @SerializedName("IdEstadoUsuario")
     val idEstadoUsuario: Int,
 
-    @SerializedName("codigo")
+    @SerializedName("Codigo")
     val codigo: String,
 
-    @SerializedName("descripcion")
+    @SerializedName("Descripcion")
     val descripcion: String
 )
-
