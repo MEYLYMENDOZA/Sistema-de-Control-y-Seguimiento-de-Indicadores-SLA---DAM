@@ -163,6 +163,7 @@ fun UsuariosScreen(
                         items(uiState.usuariosFiltrados) { usuario ->
                             UsuarioCard(
                                 usuario = usuario,
+                                roles = uiState.roles,
                                 onEdit = { viewModel.mostrarFormularioEditar(usuario) },
                                 onDelete = { viewModel.eliminarUsuario(usuario.idUsuario) }
                             )
@@ -206,9 +207,12 @@ fun UsuariosScreen(
 @Composable
 fun UsuarioCard(
     usuario: UsuarioDto,
+    roles: List<com.example.proyecto1.data.remote.dto.RolSistemaDto> = emptyList(),
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    // Log para debug
+    android.util.Log.d("UsuarioCard", "Renderizando usuario: ${usuario.username}, Personal: ${usuario.personal?.nombres ?: "NULL"}")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -225,6 +229,10 @@ fun UsuarioCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
+                // DTO tiene username y correo como String (non-nullable), no necesitamos cast
+                val username = usuario.username
+                val correo = usuario.correo
+
                 // Avatar con inicial
                 Box(
                     modifier = Modifier
@@ -233,8 +241,14 @@ fun UsuarioCard(
                         .background(Color(0xFF2196F3)),
                     contentAlignment = Alignment.Center
                 ) {
+                    val inicial = when {
+                        username.isNotBlank() -> username.first().uppercaseChar().toString()
+                        correo.isNotBlank() -> correo.first().uppercaseChar().toString()
+                        else -> "U"
+                    }
+
                     Text(
-                        text = usuario.username.firstOrNull()?.uppercase() ?: "U",
+                        text = inicial,
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
@@ -242,10 +256,10 @@ fun UsuarioCard(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    // Nombre completo (si existe)
+                    // Nombre completo desde Personal (si existe)
                     val personal = usuario.personal
-                    val nombres = personal?.nombres ?: ""
-                    val apellidos = personal?.apellidos ?: ""
+                    val nombres = personal?.nombres?.trim() ?: ""
+                    val apellidos = personal?.apellidos?.trim() ?: ""
 
                     val nombreCompleto = buildString {
                         if (nombres.isNotBlank()) append(nombres)
@@ -254,46 +268,58 @@ fun UsuarioCard(
                     }.trim()
 
                     if (nombreCompleto.isNotBlank()) {
+                        // Mostrar nombre completo como título
                         Text(
                             text = nombreCompleto,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         // Username como subtítulo
-                        Text(
-                            text = "@${usuario.username}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF666666),
-                            fontSize = 12.sp
-                        )
+                        if (username.isNotBlank()) {
+                            Text(
+                                text = "@$username",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF666666),
+                                fontSize = 12.sp
+                            )
+                        }
                     } else {
-                        // Si no hay nombre, mostrar username como título
+                        // Si no hay Personal, mostrar username como título
                         Text(
-                            text = usuario.username,
+                            text = username.ifBlank { "Usuario" },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    // Email
-                    Text(
-                        text = usuario.correo,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF666666)
-                    )
-                    // Rol
+
+                    // Email siempre visible
+                    if (correo.isNotBlank()) {
+                        Text(
+                            text = correo,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF666666)
+                        )
+                    }
+
+                    // Resolver nombre de rol
+                    val rolDisplay = usuario.rolNombre?.takeIf { it.isNotBlank() }
+                        ?: roles.find { it.idRolSistema == usuario.idRolSistema }?.nombre
+                        ?: "Sin rol"
+
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = Color(0xFF2196F3).copy(alpha = 0.1f),
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
                         Text(
-                            text = usuario.rolNombre ?: "Sin rol",
+                            text = rolDisplay,
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFF2196F3),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             fontWeight = FontWeight.Medium
                         )
                     }
+
                     // Fecha de creación
                     usuario.creadoEn?.let { fecha ->
                         Text(
@@ -309,7 +335,6 @@ fun UsuarioCard(
 
             // Botones de acción
             Row {
-                // Botón Editar
                 IconButton(
                     onClick = onEdit,
                     colors = IconButtonDefaults.iconButtonColors(
@@ -318,7 +343,6 @@ fun UsuarioCard(
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = "Editar")
                 }
-                // Botón Desactivar/Eliminar
                 IconButton(
                     onClick = onDelete,
                     colors = IconButtonDefaults.iconButtonColors(

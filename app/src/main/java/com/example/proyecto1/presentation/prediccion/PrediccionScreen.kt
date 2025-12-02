@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -19,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Locale
 
 // Colores corporativos según especificación
 private val AzulCorporativo = Color(0xFF2196F3)
@@ -33,24 +31,45 @@ private val Rojo = Color(0xFFE53935)
 fun PrediccionScreen(
     vm: PrediccionViewModel
 ) {
-    val prediccion by vm.prediccion.collectAsState()
-    val valorReal by vm.valorReal.collectAsState()
-    val slope by vm.slope.collectAsState()
-    val intercept by vm.intercept.collectAsState()
-    val error by vm.error.collectAsState()
-    val cargando by vm.cargando.collectAsState()
-    val mostrarAdvertencia by vm.mostrarAdvertencia.collectAsState()
-    val ultimaActualizacion by vm.ultimaActualizacion.collectAsState()
-    val usandoDatosDemo by vm.usandoDatosDemo.collectAsState()
+    // Usar collectAsState(...) y acceder a .value explícitamente evita problemas con delegates
+    val prediccionState = vm.prediccion.collectAsState(initial = null as Double?)
+    val prediccion = prediccionState.value
+
+    val valorRealState = vm.valorReal.collectAsState(initial = null as Double?)
+    val valorReal = valorRealState.value
+
+    val slopeState = vm.slope.collectAsState(initial = null as Double?)
+    val slope = slopeState.value
+
+    val interceptState = vm.intercept.collectAsState(initial = null as Double?)
+    val intercept = interceptState.value
+
+    val errorState = vm.error.collectAsState(initial = null as String?)
+    val error = errorState.value
+
+    val cargandoState = vm.cargando.collectAsState(initial = false)
+    val cargando = cargandoState.value
+
+    val mostrarAdvertenciaState = vm.mostrarAdvertencia.collectAsState(initial = false)
+    val mostrarAdvertencia = mostrarAdvertenciaState.value
+
+    val ultimaActualizacionState = vm.ultimaActualizacion.collectAsState(initial = null as String?)
+    val ultimaActualizacion = ultimaActualizacionState.value
+
+    val usandoDatosDemoState = vm.usandoDatosDemo.collectAsState(initial = false)
+    val usandoDatosDemo = usandoDatosDemoState.value
 
     // Filtros dinámicos desde la base de datos
-    val añosDisponibles by vm.añosDisponibles.collectAsState()
-    val mesesDisponibles by vm.mesesDisponibles.collectAsState()
+    val aniosDisponiblesState = vm.aniosDisponibles.collectAsState(initial = emptyList())
+    val aniosDisponibles = aniosDisponiblesState.value
+
+    val mesesDisponiblesState = vm.mesesDisponibles.collectAsState(initial = emptyList())
+    val mesesDisponibles = mesesDisponiblesState.value
 
     // Estado local para filtros - usa el primer año disponible o vacío
     var mesInicioSeleccionado by remember { mutableStateOf("Enero") }
     var mesFinSeleccionado by remember { mutableStateOf("Diciembre") }
-    var anioSeleccionado by remember { mutableStateOf("") }
+    var anioSeleccionado by remember { mutableStateOf( if (aniosDisponibles.isNotEmpty()) aniosDisponibles.first().toString() else "" ) }
 
     // Función helper para convertir nombre de mes a índice
     fun mesToIndex(nombre: String): Int? {
@@ -72,15 +91,15 @@ fun PrediccionScreen(
         return null
     }
 
-    // Cuando se carguen los años disponibles, seleccionar el más reciente
-    LaunchedEffect(añosDisponibles) {
-        if (añosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
-            anioSeleccionado = añosDisponibles.first().toString()
+    // Cuando se carguen los años disponibles, si no hay selección establecer la más reciente
+    LaunchedEffect(key1 = aniosDisponibles) {
+        if (anioSeleccionado.isBlank() && aniosDisponibles.isNotEmpty()) {
+            anioSeleccionado = aniosDisponibles.first().toString()
         }
     }
 
     // Cargar meses cuando se selecciona un año
-    LaunchedEffect(anioSeleccionado) {
+    LaunchedEffect(key1 = anioSeleccionado) {
         val anioInt = anioSeleccionado.toIntOrNull()
         if (anioInt != null) {
             vm.cargarMesesDisponibles(anioInt)
@@ -93,7 +112,11 @@ fun PrediccionScreen(
 
     LaunchedEffect(Unit) {
         // Solo cargar años disponibles, no datos todavía
-        vm.cargarAñosDisponibles()
+        try {
+            vm.cargarAniosDisponibles()
+        } catch (_: Exception) {
+            // silence - ViewModel ya maneja errores
+        }
     }
 
     Scaffold {
@@ -115,7 +138,7 @@ fun PrediccionScreen(
                 onActualizar = {
                     val errorRango = validarRango()
                     if (errorRango != null) {
-                        // Mostrar error de validación
+                        // Mostrar error de validación (podría mostrar snackbar en el futuro)
                         return@BarraFiltros
                     }
                     val mesInicio = mesToIndex(mesInicioSeleccionado)
@@ -131,7 +154,7 @@ fun PrediccionScreen(
                 onMesFinSeleccionado = { mesFinSeleccionado = it },
                 anioSeleccionado = anioSeleccionado,
                 onAnioSeleccionado = { anioSeleccionado = it },
-                añosDisponibles = añosDisponibles,
+                aniosDisponibles = aniosDisponibles,
                 mesesDisponibles = mesesDisponibles,
                 errorValidacion = validarRango()
             )
@@ -141,7 +164,7 @@ fun PrediccionScreen(
             if (cargando) {
                 CargandoIndicador()
             } else if (error != null) {
-                ErrorMensaje(error!!)
+                ErrorMensaje(error ?: "Error desconocido")
             } else {
                 // Sección de resultado principal
                 Column(
@@ -222,7 +245,7 @@ private fun BarraFiltros(
     onMesFinSeleccionado: (String) -> Unit,
     anioSeleccionado: String,
     onAnioSeleccionado: (String) -> Unit,
-    añosDisponibles: List<Int>,
+    aniosDisponibles: List<Int>,
     mesesDisponibles: List<Int>,
     errorValidacion: String?
 ) {
@@ -306,7 +329,7 @@ private fun BarraFiltros(
                 onAnioSeleccionado = onAnioSeleccionado,
                 onActualizar = onActualizar,
                 habilitado = habilitado,
-                añosDisponibles = añosDisponibles,
+                aniosDisponibles = aniosDisponibles,
                 mesesDisponibles = mesesDisponibles,
                 errorValidacion = errorValidacion
             )
@@ -324,7 +347,7 @@ private fun SelectorMesAnio(
     onAnioSeleccionado: (String) -> Unit,
     onActualizar: () -> Unit,
     habilitado: Boolean,
-    añosDisponibles: List<Int>,
+    aniosDisponibles: List<Int>,
     mesesDisponibles: List<Int>,
     errorValidacion: String?
 ) {
@@ -347,13 +370,13 @@ private fun SelectorMesAnio(
     }
 
     // Construir lista de años como strings
-    val aniosParaMostrar = añosDisponibles.map { it.toString() }
+    val aniosParaMostrar = aniosDisponibles.map { it.toString() }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
@@ -913,7 +936,7 @@ private fun TarjetaComparacion(
     if (prediccion == null || valorReal == null) return
 
     val diferencia = valorReal - prediccion
-    val porcentajeDiferencia = (diferencia / prediccion) * 100
+    val porcentajeDiferencia = if (prediccion != 0.0) (diferencia / prediccion) * 100 else 0.0
     val esPositivo = diferencia >= 0
 
     val colorDiferencia = when {
@@ -965,90 +988,31 @@ private fun TarjetaComparacion(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Predicho",
-                        fontSize = 11.sp,
-                        color = GrisTexto
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${String.format(Locale.US, "%.1f", prediccion)}%",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AzulCorporativo
-                    )
+                    Text("Predicción", fontWeight = FontWeight.Medium, color = GrisTexto)
+                    Spacer(Modifier.height(6.dp))
+                    Text(text = "${"%.1f".format(prediccion)}%", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
-
-                // Separador visual
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(60.dp)
-                        .background(Color(0xFFE0E0E0))
-                )
 
                 // Real
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Real",
-                        fontSize = 11.sp,
-                        color = GrisTexto
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${String.format("%.1f", valorReal)}%",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Verde
-                    )
+                    Text("Real", fontWeight = FontWeight.Medium, color = GrisTexto)
+                    Spacer(Modifier.height(6.dp))
+                    Text(text = "${"%.1f".format(valorReal)}%", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
-            }
 
-            // Diferencia
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = colorDiferencia.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                // Diferencia
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = if (esPositivo) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = colorDiferencia,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Diferencia: ${if (esPositivo) "+" else ""}${String.format("%.2f", diferencia)}% " +
-                                "(${if (esPositivo) "+" else ""}${String.format("%.1f", porcentajeDiferencia)}%)",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = colorDiferencia
-                    )
+                    Text("Diferencia", fontWeight = FontWeight.Medium, color = GrisTexto)
+                    Spacer(Modifier.height(6.dp))
+                    Text(text = "${"%.1f".format(porcentajeDiferencia)}%", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colorDiferencia)
                 }
             }
-
-            // Interpretación
-            Text(
-                text = when {
-                    kotlin.math.abs(diferencia) < 1.0 -> "✓ La predicción fue muy precisa"
-                    esPositivo -> "✓ El cumplimiento fue mejor de lo esperado"
-                    else -> "⚠ El cumplimiento fue menor a lo predicho"
-                },
-                fontSize = 11.sp,
-                color = GrisTexto,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-            )
         }
     }
 }

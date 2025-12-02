@@ -31,11 +31,13 @@ android {
                 "proguard-rules.pro"
             )
             // URL para backend en puerto 5120
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://172.19.9.109:5120/\"")
         }
         debug {
-            // 10.0.2.2 = localhost del PC desde emulador Android - Puerto 5120
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5120/\"")
+            // Usamos valor genérico "AUTO" para que la app resuelva la IP en tiempo de ejecución
+            // Evita tener que cambiar la IP por red en cada desarrollador. Se puede sobreescribir
+            // con SharedPreferences o una variable de entorno en tiempo de ejecución.
+            buildConfigField("String", "API_BASE_URL", "\"AUTO\"")
 
         }
     }

@@ -70,8 +70,8 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
     val valorReal: StateFlow<Double?> get() = _valorReal
 
     // Filtros dinámicos desde la base de datos
-    private val _añosDisponibles = MutableStateFlow<List<Int>>(emptyList())
-    val añosDisponibles: StateFlow<List<Int>> get() = _añosDisponibles
+    private val _aniosDisponibles = MutableStateFlow<List<Int>>(emptyList())
+    val aniosDisponibles: StateFlow<List<Int>> get() = _aniosDisponibles
 
     private val _mesesDisponibles = MutableStateFlow<List<Int>>(emptyList())
     val mesesDisponibles: StateFlow<List<Int>> get() = _mesesDisponibles
@@ -85,21 +85,21 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
     private var filtroUltimosMeses: Int = 12
 
     init {
-        // Cargar años disponibles al iniciar
-        cargarAñosDisponibles()
+        // Cargar anios disponibles al iniciar
+        cargarAniosDisponibles()
     }
 
     /**
      * Carga los años disponibles desde la base de datos
      */
-    fun cargarAñosDisponibles() {
+    fun cargarAniosDisponibles() {
         viewModelScope.launch {
             try {
                 val anios = repository.obtenerAniosDisponibles()
-                _añosDisponibles.value = anios
-                Log.d("PrediccionViewModel", "✅ Años disponibles cargados: $anios")
-            } catch (_: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar años disponibles")
+                _aniosDisponibles.value = anios
+                Log.d("PrediccionViewModel", "✅ Anios disponibles cargados: $anios")
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "Error al cargar anios disponibles: ${e.message}")
             }
         }
     }
@@ -113,8 +113,8 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
                 val meses = repository.obtenerMesesDisponibles(anio)
                 _mesesDisponibles.value = meses
                 Log.d("PrediccionViewModel", "✅ Meses disponibles para $anio: $meses")
-            } catch (_: Exception) {
-                Log.e("PrediccionViewModel", "❌ Error al cargar meses disponibles")
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "Error al cargar meses disponibles: ${e.message}")
             }
         }
     }
@@ -302,29 +302,51 @@ class PrediccionViewModel(application: Application) : AndroidViewModel(applicati
 
                     // Abrir PDF automáticamente
                     val context = getApplication<Application>()
-                    val uri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        pdfFile
-                    )
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdfFile)
 
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                    // Intent para visualizar
+                    val viewIntent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "application/pdf")
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                     }
 
+                    // Intent para compartir como fallback
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/pdf"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+
+                    // Otorgar permiso explícito a todas las actividades que puedan manejar estos intents
                     try {
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        // Si no hay visor de PDF, compartir el archivo
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/pdf"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        val pm = context.packageManager
+                        val resolvedView = pm.queryIntentActivities(viewIntent, 0)
+                        for (ri in resolvedView) {
+                            try {
+                                context.grantUriPermission(ri.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            } catch (_: Exception) {}
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Compartir PDF").apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        })
+
+                        val resolvedShare = pm.queryIntentActivities(shareIntent, 0)
+                        for (ri in resolvedShare) {
+                            try {
+                                context.grantUriPermission(ri.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            } catch (_: Exception) {}
+                        }
+
+                        // Añadir ClipData para algunos launchers/receivers que requieren ClipData
+                        viewIntent.clipData = android.content.ClipData.newUri(context.contentResolver, "PDF", uri)
+                        shareIntent.clipData = android.content.ClipData.newUri(context.contentResolver, "PDF", uri)
+
+                        // Intent chooser para abrir con visor; si falla, mostrar chooser de compartir
+                        try {
+                            context.startActivity(viewIntent)
+                        } catch (e: Exception) {
+                            Log.w("PrediccionViewModel", "No hay visor PDF, fallback a compartir: ${e.message}")
+                            context.startActivity(Intent.createChooser(shareIntent, "Compartir PDF").apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PrediccionViewModel", "Error otorgando permisos o abriendo PDF", e)
                     }
                 } else {
                     Log.e("PrediccionViewModel", "❌ Error al generar PDF")

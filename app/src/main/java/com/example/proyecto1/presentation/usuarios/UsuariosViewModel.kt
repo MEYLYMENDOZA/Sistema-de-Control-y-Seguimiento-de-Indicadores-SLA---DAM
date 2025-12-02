@@ -116,10 +116,25 @@ class UsuariosViewModel(
                 }.onFailure { exception ->
                     Log.e(TAG, "❌ Error al cargar roles: ${exception.message}", exception)
                     Log.d(TAG, "⚠️ Usando roles por defecto (hardcoded)")
+                    // Proveer roles por defecto para que la UI no quede vacía
+                    val fallback = listOf(
+                        RolSistemaDto(idRolSistema = 1, codigo = "ADMIN", nombre = "Administrador", descripcion = null, esActivo = true),
+                        RolSistemaDto(idRolSistema = 2, codigo = "TECNICO", nombre = "Técnico", descripcion = null, esActivo = true),
+                        RolSistemaDto(idRolSistema = 3, codigo = "USUARIO", nombre = "Usuario", descripcion = null, esActivo = true)
+                    )
+                    _uiState.value = _uiState.value.copy(roles = fallback)
+                    asignarNombresDeRol()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Excepción al cargar roles", e)
                 // Continuar con roles por defecto en UI
+                val fallback = listOf(
+                    RolSistemaDto(idRolSistema = 1, codigo = "ADMIN", nombre = "Administrador", descripcion = null, esActivo = true),
+                    RolSistemaDto(idRolSistema = 2, codigo = "TECNICO", nombre = "Técnico", descripcion = null, esActivo = true),
+                    RolSistemaDto(idRolSistema = 3, codigo = "USUARIO", nombre = "Usuario", descripcion = null, esActivo = true)
+                )
+                _uiState.value = _uiState.value.copy(roles = fallback)
+                asignarNombresDeRol()
             }
         }
     }
@@ -135,9 +150,13 @@ class UsuariosViewModel(
                 }.onFailure { exception ->
                     Log.e(TAG, "❌ Error al cargar estados: ${exception.message}", exception)
                     Log.d(TAG, "⚠️ Usando estado por defecto (Activo = 1)")
+                    val fallbackState = listOf(EstadoUsuarioDto(idEstadoUsuario = 1, codigo = "ACT", descripcion = "Activo"))
+                    _uiState.value = _uiState.value.copy(estados = fallbackState)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Excepción al cargar estados", e)
+                val fallbackState = listOf(EstadoUsuarioDto(idEstadoUsuario = 1, codigo = "ACT", descripcion = "Activo"))
+                _uiState.value = _uiState.value.copy(estados = fallbackState)
             }
         }
     }
@@ -274,23 +293,28 @@ class UsuariosViewModel(
     private fun aplicarFiltro() {
         val termino = _uiState.value.terminoBusqueda.lowercase().trim()
 
-        val filtrados = if (termino.isEmpty()) {
-            _uiState.value.usuarios
-        } else {
-            _uiState.value.usuarios.filter { usuario ->
-                val nombres = usuario.personal?.nombres?.lowercase() ?: ""
-                val apellidos = usuario.personal?.apellidos?.lowercase() ?: ""
-                val nombreCompleto = "$nombres $apellidos".trim()
-                val username = usuario.username.lowercase()
-                val correo = usuario.correo.lowercase()
+        val filtrados = try {
+            if (termino.isEmpty()) {
+                _uiState.value.usuarios
+            } else {
+                _uiState.value.usuarios.filter { usuario ->
+                    val nombres = usuario.personal?.nombres?.lowercase() ?: ""
+                    val apellidos = usuario.personal?.apellidos?.lowercase() ?: ""
+                    val nombreCompleto = "$nombres $apellidos".trim()
+                    val username = (usuario.username ?: "").lowercase()
+                    val correo = (usuario.correo ?: "").lowercase()
 
-                // Buscar en: nombre, apellido, nombre completo, username o correo
-                nombres.contains(termino) ||
-                apellidos.contains(termino) ||
-                nombreCompleto.contains(termino) ||
-                username.contains(termino) ||
-                correo.contains(termino)
+                    // Buscar en: nombre, apellido, nombre completo, username o correo
+                    nombres.contains(termino) ||
+                    apellidos.contains(termino) ||
+                    nombreCompleto.contains(termino) ||
+                    username.contains(termino) ||
+                    correo.contains(termino)
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error en aplicarFiltro: ", e)
+            _uiState.value.usuarios
         }
 
         _uiState.value = _uiState.value.copy(usuariosFiltrados = filtrados)
