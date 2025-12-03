@@ -39,6 +39,7 @@ import com.example.proyecto1.presentation.carga.CargaScreen
 import com.example.proyecto1.presentation.gestion.GestionScreen
 import com.example.proyecto1.presentation.prediccion.PrediccionScreen
 import com.example.proyecto1.presentation.tendencia.TendenciaScreen
+import com.example.proyecto1.ui.user.UserListScreen
 
 
 
@@ -208,7 +209,7 @@ fun AppRoot(sessionViewModel: SessionViewModel = hiltViewModel()) {
                             openDrawer = { scope.launch { drawerState.open() } }
                         )
                     }
-                    composable(Screen.Usuarios.route) { UsuariosPlaceholder() }
+                    composable(Screen.Usuarios.route) { UserListScreen() }
                     composable(Screen.Carga.route) { CargaScreen() }
                     composable(Screen.Gestion.route) { GestionScreen(vm = hiltViewModel()) } 
                     composable(Screen.Prediccion.route) { PrediccionScreen(vm = hiltViewModel()) }
@@ -268,8 +269,6 @@ fun DashboardPlaceholder() { PlaceholderScreen(title = "Dashboard") }
 @Composable
 fun ReportesPlaceholder() { PlaceholderScreen(title = "Reportes") }
 
-@Composable
-fun UsuariosPlaceholder() { PlaceholderScreen(title = "Usuarios") }
 
 @Composable
 fun CargaPlaceholder() { PlaceholderScreen(title = "Carga") }

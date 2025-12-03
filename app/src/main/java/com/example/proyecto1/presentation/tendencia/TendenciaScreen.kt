@@ -1,5 +1,6 @@
 package com.example.proyecto1.presentation.tendencia
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -80,12 +81,14 @@ fun TendenciaScreen(
 
     // Cargar datos cuando cambien los filtros principales
     LaunchedEffect(tipoSlaSeleccionado, anioSeleccionado, mesSeleccionado, areaSeleccionada) {
+        Log.d("TendenciaScreen", "🔄 Filtros cambiados: tipoSla=$tipoSlaSeleccionado, anio=$anioSeleccionado, mes=$mesSeleccionado, area=$areaSeleccionada")
         if (tipoSlaSeleccionado.isNotEmpty() && anioSeleccionado.isNotEmpty()) {
             val anioInt = anioSeleccionado.toIntOrNull()
             val mesInt = if (mesSeleccionado.isNotEmpty()) mesSeleccionado.toIntOrNull() else null
             val areaInt = if (areaSeleccionada.isNotEmpty()) areaSeleccionada.toIntOrNull() else null
 
             if (anioInt != null) {
+                Log.d("TendenciaScreen", "📡 Cargando reporte: mes=$mesInt, anio=$anioInt, tipoSla=$tipoSlaSeleccionado, area=$areaInt")
                 vm.cargarReporteTendencia(
                     mes = mesInt,
                     anio = anioInt,
@@ -94,6 +97,11 @@ fun TendenciaScreen(
                 )
             }
         }
+    }
+
+    // Logging del estado de los datos
+    LaunchedEffect(historico, cargando, error) {
+        Log.d("TendenciaScreen", "📊 Estado: historico=${historico.size} puntos, cargando=$cargando, error=$error")
     }
 
     Scaffold { padding ->

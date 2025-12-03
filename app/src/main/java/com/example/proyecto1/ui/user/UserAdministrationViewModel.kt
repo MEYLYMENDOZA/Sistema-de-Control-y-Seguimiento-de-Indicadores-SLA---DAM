@@ -8,7 +8,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
-class UserAdministrationViewModel(private val userRepository: UserRepository) : ViewModel() {
+class UserAdministrationViewModel(
+    private val userRepository: UserRepository
+) : ViewModel() {
 
     val users: StateFlow<List<User>> = userRepository.users
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())

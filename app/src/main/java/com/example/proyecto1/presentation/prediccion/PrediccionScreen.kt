@@ -1,5 +1,6 @@
 package com.example.proyecto1.presentation.prediccion
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -48,17 +48,18 @@ fun PrediccionScreen(
     val mostrarAdvertencia by vm.mostrarAdvertencia.collectAsState()
     val ultimaActualizacion by vm.ultimaActualizacion.collectAsState()
     val usandoDatosDemo by vm.usandoDatosDemo.collectAsState()
+    val datosHistoricos by vm.datosHistoricos.collectAsState()
 
     // Filtros dinamicos desde la base de datos
+    val tiposSlaDisponibles by vm.tiposSlaDisponibles.collectAsState()
     val aniosDisponibles by vm.aniosDisponibles.collectAsState()
     val mesesDisponibles by vm.mesesDisponibles.collectAsState()
-    val tiposSlaDisponibles by vm.tiposSlaDisponibles.collectAsState()
 
-    // Estado local para filtros - usa el primer anio disponible o vacio
+    // Estado local para filtros
     var tipoSlaSeleccionado by remember { mutableStateOf("SLA001") }
     var mesInicioSeleccionado by remember { mutableStateOf("Enero") }
     var mesFinSeleccionado by remember { mutableStateOf("Diciembre") }
-    var anioSeleccionado by remember { mutableStateOf("") }
+    var anioSeleccionado by remember { mutableStateOf("2025") }
 
     // Funcion helper para convertir nombre de mes a indice
     fun mesToIndex(nombre: String): Int? {
@@ -87,18 +88,11 @@ fun PrediccionScreen(
         }
     }
 
-    // Cuando se carguen los anios disponibles, seleccionar el mas reciente
-    LaunchedEffect(aniosDisponibles) {
-        if (aniosDisponibles.isNotEmpty() && anioSeleccionado.isEmpty()) {
-            anioSeleccionado = aniosDisponibles.first().toString()
-        }
-    }
-
-    // Cargar meses cuando se selecciona un año
-    LaunchedEffect(anioSeleccionado) {
+    // Cargar datos iniciales
+    LaunchedEffect(Unit) {
         val anioInt = anioSeleccionado.toIntOrNull()
         if (anioInt != null) {
-            vm.cargarMesesDisponibles(anioInt)
+            vm.cargarTiposSlaDisponibles()
             // Cargar datos automáticamente cuando hay año seleccionado
             val mesInicio = mesToIndex(mesInicioSeleccionado)
             val mesFin = mesToIndex(mesFinSeleccionado)
@@ -106,7 +100,8 @@ fun PrediccionScreen(
                 mesInicio = mesInicio,
                 mesFin = mesFin,
                 anio = anioInt,
-                meses = 12
+                meses = 12,
+                tipoSla = tipoSlaSeleccionado.ifEmpty { "SLA001" }
             )
         }
     }
@@ -115,6 +110,11 @@ fun PrediccionScreen(
         // Cargar años y tipos SLA disponibles
         vm.cargarAniosDisponibles()
         vm.cargarTiposSlaDisponibles()
+    }
+
+    // Logging del estado de los datos
+    LaunchedEffect(prediccion, datosHistoricos, cargando, error) {
+        Log.d("PrediccionScreen", "📊 Estado: prediccion=$prediccion, historicos=${datosHistoricos.size} puntos, cargando=$cargando, error=$error")
     }
 
     Scaffold {
@@ -146,7 +146,8 @@ fun PrediccionScreen(
                         mesInicio = mesInicio,
                         mesFin = mesFin,
                         anio = anioInt,
-                        meses = 12
+                        meses = 12,
+                        tipoSla = tipoSlaSeleccionado.ifEmpty { "SLA001" }
                     )
                 },
                 habilitado = !cargando,
@@ -221,9 +222,20 @@ fun PrediccionScreen(
 
                 // Acciones del usuario
                 AccionesUsuario(
-                    onRecalcular = { vm.cargarYPredecir() },
+                    onRecalcular = {
+                        val mesInicio = mesToIndex(mesInicioSeleccionado)
+                        val mesFin = mesToIndex(mesFinSeleccionado)
+                        val anioInt = anioSeleccionado.toIntOrNull()
+                        vm.cargarYPredecir(
+                            mesInicio = mesInicio,
+                            mesFin = mesFin,
+                            anio = anioInt,
+                            meses = 12,
+                            tipoSla = tipoSlaSeleccionado.ifEmpty { "SLA001" }
+                        )
+                    },
                     onExportar = { vm.exportarResultado() },
-                    habilitado = cargando != true
+                    habilitado = !cargando
                 )
 
                 // Pie de pantalla
@@ -1414,7 +1426,6 @@ private fun TarjetaComparacion(
     if (prediccion == null || valorReal == null) return
 
     val diferencia = valorReal - prediccion
-    val porcentajeDiferencia = (diferencia / prediccion) * 100
     val esPositivo = diferencia >= 0
 
     val colorDiferencia = when {
@@ -1454,7 +1465,7 @@ private fun TarjetaComparacion(
                 )
             }
 
-                HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+            HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
             // Fila de comparación
             Row(
@@ -1468,25 +1479,17 @@ private fun TarjetaComparacion(
                 ) {
                     Text(
                         text = "Predicho",
-                        fontSize = 11.sp,
-                        color = GrisTexto
+                        fontSize = 12.sp,
+                        color = GrisTexto,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${String.format(Locale.US, "%.1f", prediccion)}%",
-                        fontSize = 24.sp,
+                        text = "%.1f%%".format(prediccion),
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = AzulCorporativo
                     )
                 }
-
-                // Separador visual
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(60.dp)
-                        .background(Color(0xFFE0E0E0))
-                )
 
                 // Real
                 Column(
@@ -1495,61 +1498,37 @@ private fun TarjetaComparacion(
                 ) {
                     Text(
                         text = "Real",
-                        fontSize = 11.sp,
-                        color = GrisTexto
+                        fontSize = 12.sp,
+                        color = GrisTexto,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${String.format(Locale.US, "%.1f", valorReal)}%",
-                        fontSize = 24.sp,
+                        text = "%.1f%%".format(valorReal),
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Verde
+                        color = Color(0xFF202124)
                     )
                 }
-            }
 
-            // Diferencia
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = colorDiferencia.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                // Diferencia
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = if (esPositivo) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = colorDiferencia,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Diferencia: ${if (esPositivo) "+" else ""}${String.format(Locale.US, "%.2f", diferencia)}% " +
-                                "(${if (esPositivo) "+" else ""}${String.format(Locale.US, "%.1f", porcentajeDiferencia)}%)",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = "Diferencia",
+                        fontSize = 12.sp,
+                        color = GrisTexto,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${if (esPositivo) "+" else ""}%.1f%%".format(diferencia),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
                         color = colorDiferencia
                     )
                 }
             }
-
-            // Interpretación
-            Text(
-                text = when {
-                    kotlin.math.abs(diferencia) < 1.0 -> "✓ La predicción fue muy precisa"
-                    esPositivo -> "✓ El cumplimiento fue mejor de lo esperado"
-                    else -> "⚠ El cumplimiento fue menor a lo predicho"
-                },
-                fontSize = 11.sp,
-                color = GrisTexto,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-            )
         }
     }
 }

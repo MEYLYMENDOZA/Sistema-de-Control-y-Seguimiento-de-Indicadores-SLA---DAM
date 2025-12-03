@@ -131,13 +131,16 @@ class TendenciaViewModel @Inject constructor(
     }
 
     fun cargarReporteTendencia(mes: Int? = null, anio: Int? = null, tipoSla: String = "SLA1", idArea: Int? = null) {
+        Log.d("TendenciaViewModel", "🔵 cargarReporteTendencia: mes=$mes, anio=$anio, tipoSla=$tipoSla, idArea=$idArea")
         viewModelScope.launch {
             _cargando.value = true
             _error.value = null
             filtrosActuales = FiltrosReporte(mes, anio, tipoSla, idArea)
             
+            Log.d("TendenciaViewModel", "📡 Solicitando datos crudos...")
             repository.obtenerDatosCrudos(anio = anio, tipoSla = tipoSla, idArea = idArea).fold(
                 onSuccess = {
+                    Log.d("TendenciaViewModel", "✅ Datos recibidos: ${it.datosMensuales.size} meses, ${it.totalSolicitudes} solicitudes")
                     val calculator = TendenciaCalculator()
                     val calculado = calculator.calcularTendencia(it.datosMensuales)
                     if (calculado != null) {
@@ -150,15 +153,19 @@ class TendenciaViewModel @Inject constructor(
                         _totalRegistros.value = it.totalSolicitudes
                         val formato = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
                         _ultimaActualizacion.value = formato.format(Date())
+                        Log.d("TendenciaViewModel", "✅ Tendencia calculada: ${calculado.historico.size} puntos históricos, proyección=${calculado.proyeccion}")
                     } else {
                         _error.value = "Datos insuficientes (mínimo 3 meses necesarios)"
+                        Log.w("TendenciaViewModel", "⚠️ Datos insuficientes para calcular tendencia")
                     }
                 },
                 onFailure = {
                     _error.value = "Error al cargar datos: ${it.message}"
+                    Log.e("TendenciaViewModel", "❌ Error al cargar datos", it)
                 }
             )
             _cargando.value = false
+            Log.d("TendenciaViewModel", "⏹️ Carga finalizada. Histórico=${_historico.value.size} puntos, error=${_error.value}")
         }
     }
     

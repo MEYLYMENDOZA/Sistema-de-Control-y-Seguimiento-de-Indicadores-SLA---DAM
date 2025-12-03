@@ -3,7 +3,6 @@ package com.example.proyecto1.di
 import android.content.Context
 import com.example.proyecto1.data.remote.ApiService
 import com.example.proyecto1.data.remote.api.RetrofitClient
-import com.example.proyecto1.data.remote.api.SlaApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,11 +20,6 @@ object AppModule {
         return RetrofitClient(context)
     }
 
-    @Singleton
-    @Provides
-    fun provideSlaApiService(retrofitClient: RetrofitClient): SlaApiService {
-        return retrofitClient.slaApiService
-    }
 
     @Singleton
     @Provides

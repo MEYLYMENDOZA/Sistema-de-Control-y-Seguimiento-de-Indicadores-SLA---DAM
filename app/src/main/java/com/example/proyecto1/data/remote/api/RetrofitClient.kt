@@ -28,7 +28,8 @@ class RetrofitClient @Inject constructor(@ApplicationContext private val context
     private val CONNECTION_TIMEOUT = 2000
 
     private val COMMON_IPS = listOf(
-        "192.168.100.4",
+        "172.19.9.109",     // 👈 IP ACTUAL DEL SERVIDOR - PRUEBA PRIMERO
+        "192.168.100.4",    // IP anterior
         "172.19.5.121",
         "172.19.7.121",
         "172.19.7.213",
@@ -71,7 +72,7 @@ class RetrofitClient @Inject constructor(@ApplicationContext private val context
     private fun getRetrofitInstance(): Retrofit {
         if (retrofitInstance == null) {
             Log.w(TAG, "⚠️ Retrofit no inicializado, usando IP por defecto")
-            currentBaseUrl = "http://192.168.100.4:$API_PORT/"
+            currentBaseUrl = "http://172.19.9.109:$API_PORT/"
             retrofitInstance = createRetrofit(currentBaseUrl!!)
         }
         return retrofitInstance!!
@@ -121,7 +122,7 @@ class RetrofitClient @Inject constructor(@ApplicationContext private val context
             Log.w(TAG, "⚠️ No se pudo obtener la IP local del dispositivo")
         }
 
-        val fallbackUrl = lastIp?.let { formatUrl(it) } ?: "http://192.168.100.4:$API_PORT/"
+        val fallbackUrl = lastIp?.let { formatUrl(it) } ?: "http://172.19.9.109:$API_PORT/"
         Log.w(TAG, "⚠️ ========================================")
         Log.w(TAG, "⚠️ NO SE ENCONTRÓ SERVIDOR")
         Log.w(TAG, "⚠️ Usando fallback: $fallbackUrl")

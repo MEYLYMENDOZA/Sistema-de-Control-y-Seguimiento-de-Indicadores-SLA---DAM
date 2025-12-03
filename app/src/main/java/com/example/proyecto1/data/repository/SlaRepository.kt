@@ -1,7 +1,6 @@
 package com.example.proyecto1.data.repository
 
 import android.util.Log
-import com.example.proyecto1.data.remote.api.RetrofitClient
 import com.example.proyecto1.data.remote.api.SlaApiService
 import com.example.proyecto1.data.remote.dto.ConfigSlaResponseDto
 import com.example.proyecto1.data.remote.dto.ConfigSlaUpdateDto
@@ -20,18 +19,16 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.*
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Repositorio UNIFICADO para obtener datos de SLA para las pantallas de Reportes y Predicción.
  */
-class SlaRepository {
+@Singleton
+class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
 
     private val TAG = "SlaRepository"
-    private val apiService: SlaApiService get() = try {
-        RetrofitClient.slaApiService
-    } catch (e: Exception) {
-        throw IllegalStateException("SlaApiService no inicializado. Error: ${e.message}", e)
-    }
 
     // --- Métodos para la pantalla de Reportes ---
 
@@ -103,36 +100,54 @@ class SlaRepository {
     @Suppress("UNUSED_PARAMETER")
     suspend fun obtenerYPredecirSla(meses: Int = 12, anio: Int? = null, mes: Int? = null): Triple<Triple<Double, Double, Double>?, Double?, String?> {
         return try {
-            Log.d(TAG, "[Predicción] 🔍 Obteniendo datos: meses=$meses, anio=$anio")
+            Log.d(TAG, "[Predicción] 🔍 Obteniendo datos: meses=$meses, anio=$anio, mes=$mes")
             val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = null, idArea = null)
+
+            Log.d(TAG, "[Predicción] 📡 Response code: ${response.code()}, isSuccessful: ${response.isSuccessful}")
 
             if (!response.isSuccessful) {
                 Log.e(TAG, "[Predicción] ❌ Error HTTP: ${response.code()}")
                 return Triple(null, null, "Error del servidor: ${response.code()}")
             }
 
-            if (response.body().isNullOrEmpty()) {
+            val body = response.body()
+            Log.d(TAG, "[Predicción] 📦 Body size: ${body?.size ?: 0}, isNull: ${body == null}, isEmpty: ${body?.isEmpty()}")
+
+            if (body.isNullOrEmpty()) {
                 Log.w(TAG, "[Predicción] ⚠️ No hay datos en la respuesta")
                 return Triple(null, null, "No hay datos para el período.")
             }
 
-            val solicitudes = response.body()!!
+            val solicitudes = body
             Log.d(TAG, "[Predicción] 📊 Solicitudes recibidas: ${solicitudes.size}")
+
+            // Mostrar muestra de datos recibidos
+            solicitudes.take(3).forEachIndexed { idx, sol ->
+                Log.d(TAG, "[Predicción] 📝 Solicitud [$idx]: ID=${sol.idSolicitud}, " +
+                        "fechaSol=${sol.fechaSolicitud?.take(19)}, " +
+                        "fechaIng=${sol.fechaIngreso?.take(19)}, " +
+                        "numDiasSla=${sol.numDiasSla}, " +
+                        "diasUmbral=${sol.diasUmbral}, " +
+                        "codigoSla=${sol.codigoSla}")
+            }
 
             val todasLasEstadisticas = calcularEstadisticasPorMes(solicitudes)
             Log.d(TAG, "[Predicción] 📈 Meses con estadísticas: ${todasLasEstadisticas.size}")
 
             todasLasEstadisticas.forEach { est ->
-                Log.d(TAG, "[Predicción]   • ${est.mes}: ${est.total} casos, ${est.porcentajeCumplimiento}%")
+                Log.d(TAG, "[Predicción]   • ${est.mes}: ${est.total} casos, ${est.cumplidas} cumplidas, ${est.porcentajeCumplimiento.toInt()}%")
             }
 
             if (todasLasEstadisticas.size < 2) {
-                Log.w(TAG, "[Predicción] ⚠️ Datos insuficientes: ${todasLasEstadisticas.size} meses (se necesitan al menos 2)")
+                Log.w(TAG, "[Predicción] ���️ Datos insuficientes: ${todasLasEstadisticas.size} meses (se necesitan al menos 2)")
                 return Triple(null, null, "Datos insuficientes (se necesitan al menos 2 meses).")
             }
 
             val x = todasLasEstadisticas.mapIndexed { index, _ -> (index + 1).toDouble() }.toDoubleArray()
             val y = todasLasEstadisticas.map { it.porcentajeCumplimiento }.toDoubleArray()
+
+            Log.d(TAG, "[Predicción] 🔢 Arrays para regresión: x=${x.contentToString()}, y=${y.contentToString()}")
+
             val model = LinearRegression(x, y)
             val prediccion = model.predict((x.maxOrNull() ?: 0.0) + 1.0)
 
@@ -140,7 +155,8 @@ class SlaRepository {
             Triple(Triple(prediccion, model.slope, model.intercept), null, null)
 
         } catch (e: Exception) {
-            Log.e(TAG, "[Predicción] ❌ Error inesperado", e)
+            Log.e(TAG, "[Predicción] ❌ Error inesperado: ${e.message}", e)
+            e.printStackTrace()
             Triple(null, null, "Error de conexión: ${e.message}")
         }
     }
@@ -294,13 +310,28 @@ class SlaRepository {
 
     suspend fun obtenerDatosHistoricos(meses: Int = 12, anio: Int? = null, mes: Int? = null): List<SlaDataPoint> {
         try {
+            Log.d(TAG, "[Históricos] 🔍 Obteniendo datos: meses=$meses, anio=$anio, mes=$mes")
             val response = apiService.obtenerSolicitudes(meses = meses, anio = anio, mes = mes, idArea = null)
-            if (!response.isSuccessful || response.body().isNullOrEmpty()) return emptyList()
+
+            Log.d(TAG, "[Históricos] 📡 Response: code=${response.code()}, isSuccessful=${response.isSuccessful}, bodySize=${response.body()?.size}")
+
+            if (!response.isSuccessful || response.body().isNullOrEmpty()) {
+                Log.w(TAG, "[Históricos] ⚠️ Sin datos disponibles")
+                return emptyList()
+            }
+
             val estadisticas = calcularEstadisticasPorMes(response.body()!!)
-            return estadisticas.mapIndexed { index, est ->
+            Log.d(TAG, "[Históricos] 📊 Estadísticas calculadas: ${estadisticas.size} meses")
+
+            val dataPoints = estadisticas.mapIndexed { index, est ->
+                Log.d(TAG, "[Históricos]   • DataPoint[$index]: mes=${est.mes}, valor=${est.porcentajeCumplimiento}%")
                 SlaDataPoint(est.mes, est.porcentajeCumplimiento, index + 1)
             }
-        } catch (_: Exception) {
+
+            Log.d(TAG, "[Históricos] ✅ Retornando ${dataPoints.size} puntos de datos")
+            return dataPoints
+        } catch (e: Exception) {
+            Log.e(TAG, "[Históricos] ❌ Error: ${e.message}", e)
             return emptyList()
         }
     }

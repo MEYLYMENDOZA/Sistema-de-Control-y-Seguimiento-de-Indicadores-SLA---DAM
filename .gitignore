@@ -13,6 +13,9 @@
 /.cxx/
 /captures/
 
+# Server IP configuration (cada desarrollador tiene su propia IP)
+/app/src/main/res/values/server_config.xml
+
 # Android Studio
 .idea/
 .DS_Store

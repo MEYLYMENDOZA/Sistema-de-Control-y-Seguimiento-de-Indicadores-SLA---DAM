@@ -40,10 +40,9 @@ data class ConfigSlaDto(
 
 /**
  * DTO para el Rol.
- * Coincide con RolDTO.cs del backend.
+ * El backend envía 'nombre' directamente
  */
 data class RolDto(
-    // El backend nombra esta propiedad 'nombreRol'
-    @SerializedName("nombreRol")
+    @SerializedName("nombre")
     val nombre: String?
 )
