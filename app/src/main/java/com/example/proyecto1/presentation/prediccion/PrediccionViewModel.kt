@@ -1,9 +1,14 @@
 package com.example.proyecto1.presentation.prediccion
 
+import android.app.Application
+import android.content.Intent
 import android.util.Log
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto1.data.repository.SlaRepository
+import com.example.proyecto1.utils.PdfExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +33,11 @@ data class EstadisticasSla(
 
 @HiltViewModel
 class PrediccionViewModel @Inject constructor(
-    private val repository: SlaRepository
+    private val repository: SlaRepository,
+    private val application: Application
 ) : ViewModel() {
 
+    private val pdfExporter = PdfExporter(application)
 
     private val _prediccion = MutableStateFlow<Double?>(null)
     val prediccion: StateFlow<Double?> get() = _prediccion
@@ -114,16 +121,18 @@ class PrediccionViewModel @Inject constructor(
     fun cargarTiposSlaDisponibles() {
         viewModelScope.launch {
             try {
+                Log.d("PrediccionViewModel", "🔍 Cargando tipos SLA desde la BD...")
                 val tipos = repository.obtenerTiposSlaDisponibles()
                 _tiposSlaDisponibles.value = tipos
-                Log.d("PrediccionViewModel", "Tipos SLA cargados: ${tipos.size}")
+                Log.d("PrediccionViewModel", "✅ Tipos SLA cargados desde BD: ${tipos.size}")
+                tipos.forEach { (codigo, descripcion) ->
+                    Log.d("PrediccionViewModel", "   📋 $codigo: $descripcion")
+                }
             } catch (e: Exception) {
-                Log.e("PrediccionViewModel", "Error al cargar tipos SLA", e)
-                // Cargar tipos por defecto si falla
-                _tiposSlaDisponibles.value = listOf(
-                    "SLA001" to "SLA General",
-                    "SLA002" to "SLA Crítico"
-                )
+                Log.e("PrediccionViewModel", "❌ Error al cargar tipos SLA desde BD", e)
+                // NO usar fallback - dejar vacío para que el usuario sepa que hay problema
+                _tiposSlaDisponibles.value = emptyList()
+                Log.w("PrediccionViewModel", "⚠️ Lista de tipos SLA está vacía - verifica la conexión a la BD")
             }
         }
     }
@@ -246,6 +255,108 @@ class PrediccionViewModel @Inject constructor(
     }
 
     fun exportarResultado() {
-        // La lógica interna de esta función se mantiene
+        viewModelScope.launch {
+            try {
+                // Validar que hay datos para exportar
+                val pred = _prediccion.value
+                val slp = _slope.value
+                val icp = _intercept.value
+                val hist = _datosHistoricos.value
+
+                if (pred == null || slp == null || icp == null) {
+                    Toast.makeText(application, "No hay datos de predicción para exportar", Toast.LENGTH_SHORT).show()
+                    Log.w("PrediccionViewModel", "⚠️ Intento de exportar sin datos de predicción")
+                    return@launch
+                }
+
+                // Convertir datos históricos al formato esperado por PdfExporter
+                val datosHistoricosParaPdf = hist.map { punto ->
+                    Triple(punto.mes, punto.valor, punto.orden)
+                }
+
+                // Calcular estadísticas para el PDF
+                val estadisticas = if (hist.isNotEmpty()) {
+                    val mejor = hist.maxByOrNull { it.valor }
+                    val peor = hist.minByOrNull { it.valor }
+                    val promedio = hist.map { it.valor }.average()
+                    val primerasMitad = hist.take(hist.size / 2).map { it.valor }.average()
+                    val segundaMitad = hist.takeLast(hist.size / 2).map { it.valor }.average()
+                    val tendencia = when {
+                        segundaMitad > primerasMitad + 1 -> "MEJORANDO"
+                        segundaMitad < primerasMitad - 1 -> "EMPEORANDO"
+                        else -> "ESTABLE"
+                    }
+
+                    PdfExporter.EstadisticasReporte(
+                        mejorMes = mejor?.mes ?: "N/A",
+                        mejorValor = mejor?.valor ?: 0.0,
+                        peorMes = peor?.mes ?: "N/A",
+                        peorValor = peor?.valor ?: 0.0,
+                        promedio = promedio,
+                        tendencia = tendencia
+                    )
+                } else {
+                    PdfExporter.EstadisticasReporte(
+                        mejorMes = "N/A",
+                        mejorValor = 0.0,
+                        peorMes = "N/A",
+                        peorValor = 0.0,
+                        promedio = 0.0,
+                        tendencia = "N/A"
+                    )
+                }
+
+                Log.d("PrediccionViewModel", "📄 Exportando PDF con predicción: $pred%")
+
+                // Exportar a PDF
+                val archivoPdf = pdfExporter.exportarPrediccionSLA(
+                    prediccion = pred,
+                    valorReal = _valorReal.value,
+                    slope = slp,
+                    intercept = icp,
+                    datosHistoricos = datosHistoricosParaPdf,
+                    estadisticas = estadisticas
+                )
+
+                if (archivoPdf != null && archivoPdf.exists()) {
+                    Log.d("PrediccionViewModel", "✅ PDF creado: ${archivoPdf.absolutePath}")
+
+                    // Abrir el PDF automáticamente
+                    try {
+                        val uri = FileProvider.getUriForFile(
+                            application,
+                            "${application.packageName}.fileprovider",
+                            archivoPdf
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/pdf")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        application.startActivity(intent)
+
+                        Toast.makeText(
+                            application,
+                            "PDF exportado: ${archivoPdf.name}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } catch (e: Exception) {
+                        Log.e("PrediccionViewModel", "❌ Error abriendo PDF", e)
+                        Toast.makeText(
+                            application,
+                            "PDF creado en: ${archivoPdf.absolutePath}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else {
+                    Log.e("PrediccionViewModel", "❌ Error al crear el PDF")
+                    Toast.makeText(application, "Error al crear el PDF", Toast.LENGTH_SHORT).show()
+                }
+
+            } catch (e: Exception) {
+                Log.e("PrediccionViewModel", "❌ Error en exportarResultado", e)
+                Toast.makeText(application, "Error al exportar: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

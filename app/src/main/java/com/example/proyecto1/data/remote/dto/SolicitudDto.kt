@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 /**
  * DTO principal que se recibe desde el backend con los datos para el reporte.
- * El backend envía los datos de forma plana (diasUmbral y codigoSla en el root)
+ * ACTUALIZADO: El backend envía configSla y rol como objetos anidados
  */
 data class SolicitudReporteDto(
     @SerializedName("idSolicitud")
@@ -15,17 +15,20 @@ data class SolicitudReporteDto(
     val fechaIngreso: String?,
     @SerializedName("numDiasSla")
     val numDiasSla: Int?,
-    @SerializedName("diasUmbral")
-    val diasUmbral: Int?,
-    @SerializedName("codigoSla")
-    val codigoSla: String?,
-    @SerializedName("idArea")
-    val idArea: Int?,
     @SerializedName("resumenSla")
     val resumenSla: String?,
-    @SerializedName("rolRegistro")
-    val rol: RolDto? = null
-)
+    @SerializedName("idArea")
+    val idArea: Int?,
+    // Objetos anidados que vienen del backend
+    @SerializedName("configSla")
+    val configSla: ConfigSlaDto?,
+    @SerializedName("rol")
+    val rol: RolDto?
+) {
+    // Propiedades calculadas para compatibilidad con código existente
+    val diasUmbral: Int? get() = configSla?.diasUmbral
+    val codigoSla: String? get() = configSla?.codigoSla
+}
 
 /**
  * DTO para la configuración del SLA.
@@ -46,3 +49,5 @@ data class RolDto(
     @SerializedName("nombre")
     val nombre: String?
 )
+
+

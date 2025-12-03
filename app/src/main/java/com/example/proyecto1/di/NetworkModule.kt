@@ -31,6 +31,11 @@ object NetworkModule {
     // Función para detectar la IP del servidor automáticamente
     private fun detectServerIp(context: Context): String {
         return try {
+            // PRIMERO: Intentar con la IP configurada manualmente
+            Log.i(TAG, "📌 Usando IP FIJA configurada: 192.168.100.4")
+            return "192.168.100.4"
+
+            /* DESACTIVADO: Detección automática puede causar problemas
             // Intentar obtener el gateway de WiFi primero
             val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val dhcp = wifiManager.dhcpInfo
@@ -78,9 +83,10 @@ object NetworkModule {
             // Si no se detectó ninguna IP, usar localhost del emulador
             Log.w(TAG, "⚠️ No se detectó IP válida, usando emulador por defecto")
             "10.0.2.2"
+            */
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error detectando IP: ${e.message}")
-            "10.0.2.2"
+            "192.168.100.4"  // Fallback a la IP fija
         }
     }
 

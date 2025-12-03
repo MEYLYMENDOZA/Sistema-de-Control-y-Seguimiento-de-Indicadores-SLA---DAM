@@ -55,11 +55,16 @@ fun PrediccionScreen(
     val aniosDisponibles by vm.aniosDisponibles.collectAsState()
     val mesesDisponibles by vm.mesesDisponibles.collectAsState()
 
-    // Estado local para filtros
-    var tipoSlaSeleccionado by remember { mutableStateOf("SLA001") }
+    // Estado local para filtros - INICIAR VACÍO para esperar datos de BD
+    var tipoSlaSeleccionado by remember { mutableStateOf("") }
     var mesInicioSeleccionado by remember { mutableStateOf("Enero") }
     var mesFinSeleccionado by remember { mutableStateOf("Diciembre") }
     var anioSeleccionado by remember { mutableStateOf("2025") }
+
+    // Logging de cambios de estado de meses
+    LaunchedEffect(mesInicioSeleccionado, mesFinSeleccionado) {
+        Log.d("PrediccionScreen", "📅 Estado actual: mesInicio='$mesInicioSeleccionado', mesFin='$mesFinSeleccionado'")
+    }
 
     // Funcion helper para convertir nombre de mes a indice
     fun mesToIndex(nombre: String): Int? {
@@ -81,35 +86,48 @@ fun PrediccionScreen(
         return null
     }
 
-    // Cuando se carguen los tipos SLA, seleccionar el primero
+    // Cuando se carguen los tipos SLA desde la BD, seleccionar el primero automáticamente
     LaunchedEffect(tiposSlaDisponibles) {
+        Log.d("PrediccionScreen", "📋 Tipos SLA disponibles: ${tiposSlaDisponibles.size}")
+        tiposSlaDisponibles.forEach { (codigo, descripcion) ->
+            Log.d("PrediccionScreen", "   • $codigo: $descripcion")
+        }
+
         if (tiposSlaDisponibles.isNotEmpty() && tipoSlaSeleccionado.isEmpty()) {
-            tipoSlaSeleccionado = tiposSlaDisponibles.first().first
+            val primerTipo = tiposSlaDisponibles.first().first
+            tipoSlaSeleccionado = primerTipo
+            Log.d("PrediccionScreen", "✅ Tipo SLA seleccionado automáticamente: $primerTipo")
         }
     }
 
-    // Cargar datos iniciales
+    // Cargar tipos SLA y años disponibles al inicio
     LaunchedEffect(Unit) {
-        val anioInt = anioSeleccionado.toIntOrNull()
-        if (anioInt != null) {
-            vm.cargarTiposSlaDisponibles()
-            // Cargar datos automáticamente cuando hay año seleccionado
-            val mesInicio = mesToIndex(mesInicioSeleccionado)
-            val mesFin = mesToIndex(mesFinSeleccionado)
-            vm.cargarYPredecir(
-                mesInicio = mesInicio,
-                mesFin = mesFin,
-                anio = anioInt,
-                meses = 12,
-                tipoSla = tipoSlaSeleccionado.ifEmpty { "SLA001" }
-            )
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        // Cargar años y tipos SLA disponibles
+        Log.d("PrediccionScreen", "🔵 Inicializando PrediccionScreen")
         vm.cargarAniosDisponibles()
         vm.cargarTiposSlaDisponibles()
+    }
+
+    // Cargar datos automáticamente cuando haya tipo SLA seleccionado
+    LaunchedEffect(tipoSlaSeleccionado, anioSeleccionado) {
+        if (tipoSlaSeleccionado.isNotEmpty() && anioSeleccionado.isNotEmpty()) {
+            val anioInt = anioSeleccionado.toIntOrNull()
+            if (anioInt != null) {
+                val mesInicio = mesToIndex(mesInicioSeleccionado)
+                val mesFin = mesToIndex(mesFinSeleccionado)
+
+                Log.d("PrediccionScreen", "🔄 Auto-cargando predicción: tipoSla=$tipoSlaSeleccionado, anio=$anioInt")
+
+                vm.cargarYPredecir(
+                    mesInicio = mesInicio,
+                    mesFin = mesFin,
+                    anio = anioInt,
+                    meses = 12,
+                    tipoSla = tipoSlaSeleccionado
+                )
+            }
+        } else {
+            Log.d("PrediccionScreen", "⏸️ Esperando selección de tipo SLA (actual: '$tipoSlaSeleccionado')")
+        }
     }
 
     // Logging del estado de los datos
@@ -156,9 +174,17 @@ fun PrediccionScreen(
                 onTipoSlaSeleccionado = { tipoSlaSeleccionado = it },
                 tiposSlaDisponibles = tiposSlaDisponibles,
                 mesInicioSeleccionado = mesInicioSeleccionado,
-                onMesInicioSeleccionado = { mesInicioSeleccionado = it },
+                onMesInicioSeleccionado = { nuevoMes ->
+                    Log.d("PrediccionScreen", "🗓️ Mes Inicio: '$mesInicioSeleccionado' → '$nuevoMes'")
+                    mesInicioSeleccionado = nuevoMes
+                    Log.d("PrediccionScreen", "✅ Mes Inicio actualizado a: '$mesInicioSeleccionado'")
+                },
                 mesFinSeleccionado = mesFinSeleccionado,
-                onMesFinSeleccionado = { mesFinSeleccionado = it },
+                onMesFinSeleccionado = { nuevoMes ->
+                    Log.d("PrediccionScreen", "🗓️ Mes Fin: '$mesFinSeleccionado' → '$nuevoMes'")
+                    mesFinSeleccionado = nuevoMes
+                    Log.d("PrediccionScreen", "✅ Mes Fin actualizado a: '$mesFinSeleccionado'")
+                },
                 anioSeleccionado = anioSeleccionado,
                 onAnioSeleccionado = { anioSeleccionado = it },
                 aniosDisponibles = aniosDisponibles,
@@ -399,17 +425,18 @@ private fun SelectorMesAnio(
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     )
 
-    // Construir lista de meses basada en los disponibles en la BD
-    val mesesParaMostrar = buildList {
-        mesesDisponibles.forEach { mes ->
-            if (mes in 1..12) {
-                add(nombresMeses[mes - 1])
-            }
-        }
-    }
+    // Mostrar TODOS los meses siempre disponibles (no depender de BD)
+    val mesesParaMostrar = nombresMeses
 
-    // Construir lista de anios como strings
-    val aniosParaMostrar = aniosDisponibles.map { it.toString() }
+    Log.d("PrediccionScreen", "📅 Meses para mostrar: ${mesesParaMostrar.size} (${mesesParaMostrar.joinToString()})")
+
+    // Construir lista de años como strings, con fallback si está vacío
+    val aniosParaMostrar = if (aniosDisponibles.isNotEmpty()) {
+        aniosDisponibles.map { it.toString() }
+    } else {
+        // Fallback: últimos 3 años
+        listOf("2023", "2024", "2025")
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -444,7 +471,7 @@ private fun SelectorMesAnio(
                 Box {
                     OutlinedButton(
                         onClick = { expandedTipoSla = true },
-                        enabled = habilitado,
+                        enabled = habilitado && tiposSlaDisponibles.isNotEmpty(),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = GrisTexto
                         ),
@@ -453,16 +480,27 @@ private fun SelectorMesAnio(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
                         contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
-                        Text(
-                            text = tiposSlaDisponibles.firstOrNull { it.first == tipoSlaSeleccionado }?.second ?: tipoSlaSeleccionado,
-                            fontSize = 13.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Expandir",
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val textoMostrar = if (tipoSlaSeleccionado.isEmpty()) {
+                                if (tiposSlaDisponibles.isEmpty()) "Cargando..." else "Seleccionar"
+                            } else {
+                                // Mostrar el código del SLA (SLA001, SLA002, etc.)
+                                tipoSlaSeleccionado
+                            }
+                            Text(
+                                text = textoMostrar,
+                                fontSize = 13.sp
+                            )
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Expandir",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
                     DropdownMenu(
@@ -471,7 +509,12 @@ private fun SelectorMesAnio(
                     ) {
                         tiposSlaDisponibles.forEach { (codigo, descripcion) ->
                             DropdownMenuItem(
-                                text = { Text(descripcion) },
+                                text = {
+                                    Column {
+                                        Text(codigo, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text(descripcion, fontSize = 11.sp, color = GrisTexto)
+                                    }
+                                },
                                 onClick = {
                                     onTipoSlaSeleccionado(codigo)
                                     expandedTipoSla = false

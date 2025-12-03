@@ -60,7 +60,11 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
 
     private fun procesarSolicitudesParaReporte(solicitudes: List<SolicitudReporteDto>): ReporteGeneralDto {
         val totalCasos = solicitudes.size
-        val cumplen = solicitudes.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
+        val cumplen = solicitudes.count {
+            val dias = it.numDiasSla
+            val umbral = it.diasUmbral
+            dias != null && umbral != null && dias <= umbral
+        }
         val noCumplen = totalCasos - cumplen
         val porcentajeCumplimiento = if (totalCasos > 0) (cumplen.toDouble() / totalCasos) * 100 else 0.0
         val promedioDias = solicitudes.mapNotNull { it.numDiasSla }.average()
@@ -69,13 +73,21 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
 
         val cumplimientoPorTipo = solicitudes.groupBy { it.codigoSla ?: "Sin Tipo" }.map { (tipo, lista) ->
             val total = lista.size
-            val cumplenTipo = lista.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
+            val cumplenTipo = lista.count {
+                val dias = it.numDiasSla
+                val umbral = it.diasUmbral
+                dias != null && umbral != null && dias <= umbral
+            }
             CumplimientoPorTipoDto(tipo, total, cumplenTipo, if (total > 0) (cumplenTipo.toDouble() / total) * 100 else 0.0)
         }
 
         val cumplimientoPorRol = solicitudes.groupBy { it.rol?.nombre ?: "Sin Rol" }.map { (rol, lista) ->
             val total = lista.size
-            val cumplenRol = lista.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
+            val cumplenRol = lista.count {
+                val dias = it.numDiasSla
+                val umbral = it.diasUmbral
+                dias != null && umbral != null && dias <= umbral
+            }
             CumplimientoPorRolDto(rol, cumplenRol, total, if (total > 0) (cumplenRol.toDouble() / total) * 100 else 0.0)
         }
 
@@ -84,8 +96,10 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         val ultimosRegistros = solicitudes.sortedByDescending { it.fechaSolicitud }.take(10).map { sol ->
             val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
-            val estado = if (sol.numDiasSla != null && sol.diasUmbral != null) {
-                if (sol.numDiasSla <= sol.diasUmbral) "Cumple" else "No Cumple"
+            val numDias = sol.numDiasSla
+            val umbral = sol.diasUmbral
+            val estado = if (numDias != null && umbral != null) {
+                if (numDias <= umbral) "Cumple" else "No Cumple"
             } else {
                 "N/A"
             }
@@ -354,16 +368,25 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
 
     suspend fun obtenerTiposSlaDisponibles(): List<Pair<String, String>> {
         return try {
+            Log.d(TAG, "[TiposSLA] 🔍 Obteniendo tipos SLA desde API...")
             val response = apiService.obtenerTiposSlaDisponibles()
+
+            Log.d(TAG, "[TiposSLA] 📡 Response: code=${response.code()}, isSuccessful=${response.isSuccessful}")
+
             if (response.isSuccessful && response.body() != null) {
-                response.body()!!.map { it.codigo to it.descripcion }
+                val tipos = response.body()!!.map {
+                    Log.d(TAG, "[TiposSLA]   • ${it.codigo}: ${it.descripcion}")
+                    it.codigo to it.descripcion
+                }
+                Log.d(TAG, "[TiposSLA] ✅ ${tipos.size} tipos SLA obtenidos desde BD")
+                tipos
             } else {
-                // Fallback si el endpoint no existe
-                listOf("SLA001" to "SLA Tipo 1", "SLA002" to "SLA Tipo 2")
+                Log.e(TAG, "[TiposSLA] ❌ Response no exitoso o body null")
+                emptyList()
             }
-        } catch (_: Exception) {
-            // Fallback si hay error de conexión
-            listOf("SLA001" to "SLA Tipo 1", "SLA002" to "SLA Tipo 2")
+        } catch (e: Exception) {
+            Log.e(TAG, "[TiposSLA] ❌ Error al obtener tipos SLA", e)
+            emptyList()
         }
     }
 

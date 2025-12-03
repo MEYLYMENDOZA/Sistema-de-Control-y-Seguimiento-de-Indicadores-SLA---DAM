@@ -5,14 +5,14 @@
 
         Opciones:
         - "auto" : Detecta automáticamente usando el gateway WiFi
-        - IP específica: Por ejemplo "192.168.100.4" o "172.19.5.121"
+        - IP específica: Por ejemplo "192.168.100.4" o "172.19.9.109"
 
         IMPORTANTE: Si la detección automática no funciona, cambia "auto" por la IP
         de tu máquina que corre el servidor (usa ipconfig en Windows o ifconfig en Linux/Mac)
 
-        CONFIGURACIÓN ACTUAL: IP manual configurada (172.19.9.109)
+        CONFIGURACIÓN ACTUAL: IP manual configurada (192.168.100.4)
     -->
-    <string name="server_ip" translatable="false">172.19.9.109</string>
+    <string name="server_ip" translatable="false">192.168.100.4</string>
     <string name="server_port" translatable="false">5120</string>
 </resources>
 

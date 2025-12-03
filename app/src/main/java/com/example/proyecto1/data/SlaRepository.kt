@@ -183,19 +183,31 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
 
     private fun procesarSolicitudesParaReporte(solicitudes: List<SolicitudReporteDto>): ReporteGeneralDto {
         val totalCasos = solicitudes.size
-        val cumplen = solicitudes.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
+        val cumplen = solicitudes.count {
+            val dias = it.numDiasSla
+            val umbral = it.diasUmbral
+            dias != null && umbral != null && dias <= umbral
+        }
         val noCumplen = totalCasos - cumplen
         val porcentajeCumplimiento = if (totalCasos > 0) (cumplen.toDouble() / totalCasos) * 100 else 0.0
         val promedioDias = solicitudes.mapNotNull { it.numDiasSla }.average()
         val resumen = ResumenEjecutivoDto(totalCasos, cumplen, noCumplen, porcentajeCumplimiento, promedioDias)
         val cumplimientoPorTipo = solicitudes.groupBy { it.codigoSla ?: "Sin Tipo" }.map { (tipo, lista) ->
             val total = lista.size
-            val cumplenTipo = lista.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
+            val cumplenTipo = lista.count {
+                val dias = it.numDiasSla
+                val umbral = it.diasUmbral
+                dias != null && umbral != null && dias <= umbral
+            }
             CumplimientoPorTipoDto(tipo, total, cumplenTipo, if (total > 0) (cumplenTipo.toDouble() / total) * 100 else 0.0)
         }
         val cumplimientoPorRol = solicitudes.groupBy { it.rol?.nombre ?: "Sin Rol" }.map { (rol, lista) ->
             val total = lista.size
-            val cumplenRol = lista.count { it.numDiasSla != null && it.diasUmbral != null && it.numDiasSla <= it.diasUmbral }
+            val cumplenRol = lista.count {
+                val dias = it.numDiasSla
+                val umbral = it.diasUmbral
+                dias != null && umbral != null && dias <= umbral
+            }
             CumplimientoPorRolDto(rol, cumplenRol, total, if (total > 0) (cumplenRol.toDouble() / total) * 100 else 0.0)
         }
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS")
@@ -203,7 +215,11 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         val ultimosRegistros = solicitudes.sortedByDescending { it.fechaSolicitud }.take(10).map { sol ->
             val fechaSol = sol.fechaSolicitud?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
             val fechaIng = sol.fechaIngreso?.let { try { LocalDateTime.parse(it, formatter).format(displayFormatter) } catch (_: Exception) { "Fecha Inv." } } ?: "N/A"
-            val estado = if (sol.numDiasSla != null && sol.diasUmbral != null) if (sol.numDiasSla <= sol.diasUmbral) "Cumple" else "No Cumple" else "N/A"
+            val numDias = sol.numDiasSla
+            val umbral = sol.diasUmbral
+            val estado = if (numDias != null && umbral != null) {
+                if (numDias <= umbral) "Cumple" else "No Cumple"
+            } else "N/A"
             UltimoRegistroDto(sol.rol?.nombre ?: "Sin Rol", fechaSol, fechaIng, sol.codigoSla ?: "N/A", sol.numDiasSla, estado)
         }
         return ReporteGeneralDto(resumen, cumplimientoPorTipo, cumplimientoPorRol, ultimosRegistros)
@@ -262,7 +278,11 @@ class SlaRepository @Inject constructor(private val apiService: SlaApiService) {
         }
 
         return grouped.filter { it.key != "UNKNOWN" }.map { (mes, sols) ->
-            val cumplidas = sols.count { s -> s.numDiasSla != null && s.diasUmbral != null && s.numDiasSla <= s.diasUmbral }
+            val cumplidas = sols.count { s ->
+                val dias = s.numDiasSla
+                val umbral = s.diasUmbral
+                dias != null && umbral != null && dias <= umbral
+            }
             val total = sols.size
             val porcentaje = if (total > 0) (cumplidas.toDouble() / total) * 100.0 else 0.0
             EstadisticaMes(mes, total, cumplidas, total - cumplidas, porcentaje)
